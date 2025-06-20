@@ -1,0 +1,41 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "D:\\Games\\MyProject\\EscrowEagle\\src\\contracts\\BonusEscrow.sol": {
+      "lastModificationDate": 1750338135643,
+      "contentHash": "5127af64a015ef1007b246817e34fa13",
+      "sourceName": "contracts/BonusEscrow.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "BonusEscrow"
+      ]
+    }
+  }
+}

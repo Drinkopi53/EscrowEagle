@@ -15,7 +15,7 @@ if w3.is_connected():
 
     # Read contract address from JSON file
     try:
-        with open("../deployed_contract_address.json", "r") as f: # Adjusted path
+        with open("./deployed_contract_address.json", "r") as f: # Adjusted path
             data = json.load(f)
             contract_address = data.get("contractAddress")
 

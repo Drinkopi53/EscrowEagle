@@ -1,5 +1,6 @@
 // This script deploys the BonusEscrow.sol contract using Hardhat.
 
+const { ethers } = require("hardhat");
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
@@ -7,17 +8,17 @@ const path = require("path");
 async function main() {
   try {
     // Get the contract factory for BonusEscrow
-    const BonusEscrow = await hre.ethers.getContractFactory("BonusEscrow");
+    const BonusEscrow = await ethers.getContractFactory("BonusEscrow");
 
     // Deploy the contract
     console.log("Deploying BonusEscrow contract...");
     const bonusEscrow = await BonusEscrow.deploy();
 
     // Wait for the contract to be deployed
-    await bonusEscrow.deployed();
+    await bonusEscrow.waitForDeployment();
 
     // Print the deployed contract's address
-    console.log("BonusEscrow deployed to:", bonusEscrow.address);
+    console.log("BonusEscrow deployed to:", bonusEscrow.target);
 
     // Save the deployed contract's address to a JSON file
     const deployedAddressPath = path.join(__dirname, "../../python_workspace/deployed_contract_address.json");
@@ -30,7 +31,7 @@ async function main() {
 
     fs.writeFileSync(
       deployedAddressPath,
-      JSON.stringify({ contractAddress: bonusEscrow.address }, null, 2)
+      JSON.stringify({ contractAddress: bonusEscrow.target }, null, 2)
     );
     console.log(`Contract address saved to ${deployedAddressPath}`);
 
