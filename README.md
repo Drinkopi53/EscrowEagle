@@ -1,19 +1,32 @@
-# Local Smart Contract Interaction Environment
+# Trust-Chain Bonus: Local Simulation Environment
 
-## Project Description
+## Project Overview
 
-This project provides a local simulation environment for interacting with an Ethereum smart contract using a Python script. It utilizes Hardhat for setting up and running a local Ethereum node and `web3.py` for the Python-based interaction with the deployed smart contract.
+This project establishes a local simulation environment for a transparent and automated bonus system, leveraging Ethereum smart contracts on a local blockchain. It is designed to validate the end-to-end workflow and business logic using dummy data, without requiring external services or public blockchain interaction. The simulation utilizes Hardhat for the local Ethereum node and smart contract management, and a Python script with `web3.py` for interacting with the deployed contracts based on simulated events.
 
-The primary components are:
-- A simple `BonusEscrow.sol` smart contract.
-- A Hardhat environment for compiling, deploying, and testing the contract.
-- A Python script (`python_workspace/src/main.py`) that connects to the local Hardhat node, reads the deployed contract's address, and interacts with its functions.
+## Key Features
+
+### Implemented Features
+
+*   **Local Smart Contract (`BonusEscrow.sol`):** Core logic for locking and paying bonuses, deployed on a local Hardhat Network. Basic functionalities like `constructor` and `deposit` are implemented.
+*   **Hardhat Deployment Script:** Automates the deployment of `BonusEscrow.sol` to the local Hardhat Network and records the deployed contract address.
+*   **Python Mock Oracle Script (`python_workspace/src/main.py`):** Connects to the local Hardhat node, reads the deployed contract address, and demonstrates basic interaction by reading public contract data (e.g., `owner`). This script is designed to simulate external event triggers.
+*   **`dummy-events.json`:** A JSON file serving as the source for simulated external events, allowing manual input of performance triggers.
+
+### Planned Features
+
+*   **Web Dashboard (Frontend):** A simple Next.js (React) interface using Ethers.js to monitor smart contract state (e.g., escrow balance) and facilitate user interaction with the local blockchain.
+*   **Comprehensive Mock Oracle Logic:** Further development of the Python script to read specific events from `dummy-events.json` and trigger `releaseBonus()` functions on the smart contract based on these events.
+
+## Project Status & Recent Milestones
+
+The `spesifikasi-produk.md` (Local Simulation Version) has been successfully validated, providing a clear product vision and requirements. The foundational elements of the local simulation project are fully initialized, including the monorepo structure, Next.js application setup, Hardhat project, Python oracle script framework, and initial dummy data files. Significant progress has been made in establishing basic communication between the Solidity smart contract on Hardhat Network and the Python script using `web3.py`, with core contract functions implemented and deployment/interaction scripts in place.
 
 ## Prerequisites
 
-- **Node.js:** A recent LTS version (e.g., 18.x or 20.x). You can download it from [nodejs.org](https://nodejs.org/).
-- **Python:** A recent version (e.g., 3.9 or newer). You can download it from [python.org](https://www.python.org/).
-- **pip:** Python package installer (usually comes with Python).
+*   **Node.js:** A recent LTS version (e.g., 18.x or 20.x). Download from [nodejs.org](https://nodejs.org/).
+*   **Python:** A recent version (e.g., 3.9 or newer). Download from [python.org](https://www.python.org/).
+*   **pip:** Python package installer (usually comes with Python).
 
 ## Setup & Installation
 
@@ -22,7 +35,7 @@ The primary components are:
 This project uses Hardhat to manage the Ethereum development environment. The necessary dependencies are listed in `package.json`.
 
 1.  **Install Node.js dependencies:**
-    Open a terminal in the root directory of this project and run:
+    Open a terminal in the **project root directory** and run:
     ```bash
     npm install
     ```
@@ -70,7 +83,7 @@ The Python script and its dependencies are managed within the `python_workspace`
 
 ## Running the Simulation
 
-Follow these steps in order to run the full simulation:
+Follow these steps in order to run the full simulation workflow:
 
 ### 1. Start Hardhat Node
 
@@ -93,14 +106,14 @@ This step compiles (if necessary) and deploys the `BonusEscrow.sol` contract to 
     npm run deploy:contract
     ```
     This script will:
-    - Connect to the `localhost` network (the Hardhat node you just started).
-    - Deploy `BonusEscrow.sol`.
-    - Print the deployed contract's address to the console.
-    - Create/update the `python_workspace/deployed_contract_address.json` file with the address.
+    -   Connect to the `localhost` network (the Hardhat node you just started).
+    -   Deploy `BonusEscrow.sol`.
+    -   Print the deployed contract's address to the console.
+    -   Create/update the `python_workspace/deployed_contract_address.json` file with the address.
 
-### 3. Run Python Script
+### 3. Run Python Script (Mock Oracle)
 
-This script interacts with the deployed smart contract.
+This script acts as the mock oracle, interacting with the deployed smart contract based on `dummy-events.json`.
 
 1.  Open a **new terminal** (or reuse one where the virtual environment can be activated).
 2.  Navigate to the `python_workspace` directory:
@@ -116,36 +129,62 @@ This script interacts with the deployed smart contract.
     ```
     (Or `python3 src/main.py` if needed)
     The script will:
-    - Connect to the Hardhat node.
-    - Read the contract address from `deployed_contract_address.json`.
-    - Instantiate the contract using `web3.py`.
-    - Call the `owner()` function of the smart contract and print the owner's address.
+    -   Connect to the Hardhat node.
+    -   Read the contract address from `deployed_contract_address.json`.
+    -   Instantiate the contract using `web3.py`.
+    -   Call the `owner()` function of the smart contract and print the owner's address (this will be extended to process `dummy-events.json` and trigger `releaseBonus()` in future iterations).
 
 ## Project Structure
 
 ```
 .
+├── memory-bank/
+│   ├── architecture.md             # Project architectural overview
+│   ├── papan-proyek.md             # Project board and task tracking
+│   ├── progress.md                 # Summary of project progress and milestones
+│   └── spesifikasi-produk.md       # Product requirements document (local simulation)
 ├── src/
 │   ├── contracts/
-│   │   └── BonusEscrow.sol       # The Solidity smart contract
+│   │   └── BonusEscrow.sol           # The Solidity smart contract
 │   └── deploy/
-│       └── 01_deploy_escrow.js   # Hardhat script for deploying the contract
+│       └── 01_deploy_escrow.js       # Hardhat script for deploying the contract
 ├── python_workspace/
-│   ├── venv/                     # Python virtual environment (created by user)
+│   ├── venv/                         # Python virtual environment (created by user)
 │   ├── src/
-│   │   └── main.py               # Python script for contract interaction
-│   ├── requirements.txt          # Python dependencies (e.g., web3)
+│   │   └── main.py                   # Python script for contract interaction (mock oracle)
+│   ├── requirements.txt              # Python dependencies (e.g., web3)
 │   └── deployed_contract_address.json # Stores the deployed contract's address
-├── package.json                  # Node.js project metadata, dependencies, and scripts
-├── hardhat.config.js             # Hardhat configuration (typical Hardhat file)
-└── README.md                     # This file
+├── package.json                      # Node.js project metadata, dependencies, and scripts
+├── hardhat.config.js                 # Hardhat configuration
+├── dummy-events.json                 # Simulated external event data
+└── README.md                         # This file
 ```
 
--   `src/contracts/BonusEscrow.sol`: The smart contract source code.
--   `src/deploy/01_deploy_escrow.js`: The Hardhat script used to deploy the `BonusEscrow` contract.
--   `python_workspace/`: Contains all Python-related code and dependencies.
-    -   `python_workspace/requirements.txt`: Lists the Python packages required for the project (e.g., `web3`).
-    -   `python_workspace/src/main.py`: The main Python script that uses `web3.py` to connect to the Hardhat node and interact with the deployed smart contract.
-    -   `python_workspace/deployed_contract_address.json`: This file is automatically generated by the deployment script and stores the address of the deployed `BonusEscrow` contract. The Python script reads this file to know where the contract is located on the blockchain.
--   `package.json`: Node.js project metadata, dependencies, and scripts.
--   `hardhat.config.js`: Standard Hardhat project configuration file (assumed to be present for a Hardhat project).
+*   `memory-bank/`: Contains project documentation, specifications, and progress tracking.
+*   `src/contracts/BonusEscrow.sol`: The smart contract source code.
+*   `src/deploy/01_deploy_escrow.js`: The Hardhat script used to deploy the `BonusEscrow` contract.
+*   `python_workspace/`: Contains all Python-related code and dependencies.
+    *   `python_workspace/requirements.txt`: Lists the Python packages required for the project (e.g., `web3`).
+    *   `python_workspace/src/main.py`: The main Python script that uses `web3.py` to connect to the Hardhat node and interact with the deployed smart contract.
+    *   `python_workspace/deployed_contract_address.json`: This file is automatically generated by the deployment script and stores the address of the deployed `BonusEscrow` contract. The Python script reads this file to know where the contract is located on the blockchain.
+*   `package.json`: Node.js project metadata, dependencies, and scripts.
+*   `hardhat.config.js`: Standard Hardhat project configuration file.
+*   `dummy-events.json`: The JSON file used to simulate external events for the mock oracle.
+
+## Development Workflow
+
+Developers can follow these steps for common development tasks:
+
+1.  **Smart Contract Development:** Modify [`src/contracts/BonusEscrow.sol`](src/contracts/BonusEscrow.sol).
+2.  **Deployment Script Updates:** Adjust [`src/deploy/01_deploy_escrow.js`](src/deploy/01_deploy_escrow.js) as needed for contract changes.
+3.  **Python Mock Oracle Logic:** Enhance [`python_workspace/src/main.py`](python_workspace/src/main.py) to implement more sophisticated event processing and contract interactions.
+4.  **Simulated Data:** Update [`dummy-events.json`](dummy-events.json) to test different event scenarios.
+5.  **Testing:** Run Hardhat tests for smart contracts (currently not explicitly defined in `package.json` but can be added).
+
+## Additional Documentation
+
+*   **Product Specification:** [`memory-bank/spesifikasi-produk.md`](memory-bank/spesifikasi-produk.md)
+*   **Architectural Overview:** [`memory-bank/architecture.md`](memory-bank/architecture.md)
+*   **Project Progress:** [`memory-bank/progress.md`](memory-bank/progress.md)
+*   **Project Board:** [`memory-bank/papan-proyek.md`](memory-bank/papan-proyek.md)
+*   **Vibe Coding Guides:** Refer to the `vibe-guide/` and `petunjuk-vibe-coding-main/` directories for general development guidelines and best practices.
