@@ -1,31 +1,14 @@
-### STATUS [Update: 19-06-2025]
-- `spesifikasi-produk.md` (Versi Simulasi Lokal) telah divalidasi.
-- Fondasi proyek simulasi lokal telah berhasil diinisialisasi, termasuk struktur monorepo, aplikasi Next.js, proyek Hardhat, kerangka script Python oracle, dan file data dummy awal.
+### STATUS [Update: 25-06-2025]
+- UI dasar untuk sistem bounty telah dibuat. Logika inti di smart contract dan oracle sudah siap.
 
-### BABY-STEP BERJALAN: Komunikasi Smart Contract & Python (Hardhat Lokal)
-- **Tujuan:** Membangun komunikasi dasar antara smart contract Solidity yang berjalan di Hardhat Network lokal dan script Python menggunakan `web3.py`.
+### BABY-STEP BERJALAN: Mengintegrasikan Papan Bounty dengan `BountyContract.sol` secara Penuh
+- **Tujuan:** Menghubungkan frontend secara penuh dengan smart contract, memastikan data bounty (termasuk status dan data pemenang) ditampilkan secara dinamis dan otomatis sesuai alur kerja final.
 - **Tugas:**
-    - [ ] **T1:** Implementasi Fungsi Dasar `BonusEscrow.sol`
-        - **Deskripsi:** Menulis fungsi `constructor` untuk menginisialisasi pemilik kontrak dan fungsi `deposit` untuk menerima ETH/token.
-        - **File:** `src/contracts/BonusEscrow.sol`
-        - **Tes:** Unit test untuk `constructor` dan `deposit` berhasil.
-        - **Assignee:** CortexAI
-    - [ ] **T2:** Script Deployment Hardhat
-        - **Deskripsi:** Membuat script Hardhat untuk men-deploy `BonusEscrow.sol` ke Hardhat Network lokal dan mencatat alamat kontrak yang di-deploy.
-        - **File:** `src/deploy/01_deploy_escrow.js`
-        - **Tes:** Script berjalan sukses dan menampilkan alamat kontrak.
-        - **Assignee:** CortexAI
-    - [ ] **T3:** Koneksi Python ke Hardhat Node
-        - **Deskripsi:** Menulis kode di `src/main.py` menggunakan `web3.py` untuk terhubung ke node Hardhat lokal (`http://127.0.0.1:8545/`).
-        - **File:** `src/main.py`
-        - **Tes:** Script Python berhasil terhubung ke node Hardhat.
-        - **Assignee:** CortexAI
-    - [ ] **T4:** Pembacaan Data Kontrak dari Python
-        - **Deskripsi:** Menambahkan fungsi ke `src/main.py` untuk membaca alamat kontrak yang telah di-deploy (dari file sementara) dan mengambil salah satu data publiknya (misal: `owner`).
-        - **File:** `src/main.py`
-        - **Tes:** Script Python berhasil membaca alamat kontrak dan mengambil data publik.
-        - **Assignee:** CortexAI
+    - [ ] **T1:** Implementasikan fungsi `fetchBounties` yang membaca semua data bounty dari smart contract dan menampilkannya di Papan Bounty. | **File:** `apps/web/pages/index.tsx` | **Tes:** Papan Bounty menampilkan data nyata dari blockchain lokal, bukan lagi data dummy. | **Assignee:** CortexAI
+    - [ ] **T2:** Sempurnakan komponen `BountyCard.tsx` untuk menampilkan semua data yang dibutuhkan: Judul, Deskripsi singkat, Hadiah ("1 Etherium"), dan Status (dengan warna). | **File:** `apps/web/components/BountyCard.tsx` | **Tes:** Kartu bounty menampilkan data sesuai spesifikasi. | **Assignee:** CortexAI
+    - [ ] **T3:** Implementasikan logika untuk menampilkan `Nama User` & `Link GitHub` pemenang. | **File:** `apps/web/pages/bounty/[id].tsx` | **Tes:** Setelah `mock_oracle.py` berjalan, halaman detail bounty menampilkan nama dan link PR pemenang. | **Assignee:** CortexAI
+    - [ ] **T4:** Fungsikan form "Buat Bounty Baru" agar bisa mengirim transaksi (`useContractWrite`) ke `BountyContract.sol` untuk membuat bounty baru. | **File:** `apps/web/pages/create-bounty.tsx` | **Tes:** Mengisi form dan submit berhasil membuat bounty baru yang langsung muncul di Papan Bounty. | **Assignee:** CortexAI
+    - [ ] **T5:** Lakukan pengujian End-to-End untuk seluruh alur demo. | **File:** Seluruh project | **Tes:** Alur dari pembuatan bounty, simulasi PR merge, hingga status "Diterima" di website berjalan lancar. | **Assignee:** Rian
 
 ### SARAN & RISIKO
-- **Pembagian Alamat Kontrak:** Untuk membagikan alamat kontrak yang di-deploy dari Hardhat ke script Python, disarankan untuk menyimpan alamat tersebut ke dalam file sementara (misal: `deployed_contract_address.json` atau `deployed_contract_address.txt`) setelah deployment oleh script Hardhat. Script Python kemudian dapat membaca file ini untuk mendapatkan alamat kontrak. Ini meminimalkan hardcoding dan memfasilitasi alur kerja pengembangan lokal.
-- **Dependensi:** Pastikan semua dependensi Python (`web3.py`) dan Node.js/Hardhat terinstal dengan benar dan versi yang kompatibel.
+- Untuk T3, karena nama user dan link PR tidak disimpan on-chain, data ini harus diambil dari log event smart contract atau (untuk simplifikasi demo) dibaca dari `dummy-events.json` oleh frontend.

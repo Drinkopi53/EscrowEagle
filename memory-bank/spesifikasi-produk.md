@@ -1,53 +1,87 @@
-# Dokumen Kebutuhan Produk (PRD): Trust-Chain Bonus (Simulasi Lokal)
+# Dokumen Kebutuhan Produk (PRD): Trust-Chain Bounty Platform (Simulasi Lokal)
 
 ## 1. Tinjauan Produk
 
-**Visi Produk:** **Mensimulasikan** sistem bonus yang transparan dan otomatis untuk tim remote menggunakan **smart contract yang berjalan di blockchain lokal**. Sistem ini dipicu oleh **data dummy** untuk memahami alur kerja dan logika bisnis tanpa koneksi ke layanan eksternal.
+**Visi Produk:** Mensimulasikan sebuah platform **code bounty** terdesentralisasi yang memberikan hadiah secara transparan dan otomatis kepada programmer berdasarkan **Pull Request (PR) yang berhasil di-merge**. Tujuan utamanya adalah untuk memvalidasi alur kerja dan logika bisnis secara end-to-end di lingkungan lokal yang aman dan terkontrol.
 
-**Target Pengguna:**
-* **Pengembang & Arsitek Sistem:** Untuk mempelajari, menguji, dan memvalidasi alur kerja sistem pembayaran bonus berbasis blockchain di lingkungan yang aman dan terkontrol.
+**Target Pengguna (dalam Konteks Simulasi):**
+* **Manajer Proyek (Persona: Sari):** Pengguna yang berperan sebagai pembuat dan pendana bounty.
+* **Programmer/Kontributor (Persona: Dito, Budi, Ani):** Pengguna yang berperan sebagai peserta yang mengerjakan tugas untuk mendapatkan hadiah.
 
-**Tujuan Bisnis:** Memvalidasi konsep dan alur kerja aplikasi secara end-to-end di lingkungan lokal sebelum mempertimbangkan pengembangan ke jaringan publik.
+**Tujuan Proyek:**
+* Membangun prototipe fungsional untuk didemokan.
+* Memvalidasi konsep sistem bounty kompetitif berbasis smart contract.
+* Menyediakan cetak biru untuk potensi pengembangan ke jaringan publik di masa depan.
 
-**Metrik Kesuksesan:**
-* Keberhasilan eksekusi alur penuh: dari pembacaan data dummy, pemicuan oleh script Python, hingga perubahan state di smart contract lokal.
-* Waktu yang dibutuhkan untuk setup dan menjalankan simulasi pertama.
+## 2. Persona Pengguna
 
-## 2. Kebutuhan Fitur
+### Persona 1: "Sari, Manajer Proyek"
+-   **Tujuan:** Ingin memberikan insentif untuk penyelesaian tugas pengembangan dengan cara yang adil, transparan, dan kompetitif.
+-   **Masalah (Pain Points) yang Disimulasikan:** Proses manual dalam menentukan pemenang dan melakukan transfer pembayaran bonus.
+
+### Persona 2: "Dito, Programmer Kontributor"
+-   **Tujuan:** Ingin berpartisipasi dalam sebuah tugas, bersaing dengan programmer lain, dan menerima hadiah secara otomatis dan instan setelah pekerjaannya disetujui.
+-   **Masalah (Pain Points) yang Disimulasikan:** Ketidakpastian dan keterlambatan dalam menerima pembayaran hadiah.
+
+## 3. Kebutuhan Fitur
 
 | Fitur | Deskripsi | User Stories | Prioritas |
-|---|---|---|---|
-| **Dashboard Monitoring Lokal** | Antarmuka web sederhana untuk berinteraksi dengan smart contract di blockchain lokal. | Sebagai Rian, saya ingin melihat state dari smart contract (misal: saldo escrow) yang berjalan di Hardhat Network. | Wajib |
-| **Simulasi Pemicu Kinerja** | Penggunaan file data dummy untuk merepresentasikan event dari dunia luar (spt: GitHub/Trello). | Sebagai sistem, saya harus bisa membaca **data dummy** dari file `dummy-events.json` untuk mensimulasikan pencapaian target. | Wajib |
-| **Smart Contract Lokal** | Logika inti di blockchain **lokal (Hardhat Network)** untuk mengunci dan membayar bonus. | Sebagai Dito (dalam simulasi), bonus saya harus terkunci di escrow pada blockchain lokal. | Wajib |
-| **Python Mock Oracle Script** | **Script Python** yang bertindak sebagai "Oracle" di lingkungan lokal. | Sebagai sistem, script Python harus membaca `dummy-events.json`, dan jika ada event "target tercapai", ia akan memicu fungsi pembayaran di smart contract lokal. | Wajib |
+| :--- | :--- | :--- | :--- |
+| **Dashboard Manajemen Bounty** | Antarmuka web untuk Manajer membuat, mendanai, dan memantau bounty. | Sebagai Sari, saya ingin bisa membuat **bounty baru** dengan menentukan judul, deskripsi, jumlah hadiah, dan tipe (Individu/Kompetitif) melalui sebuah form di website. | Wajib |
+| **Papan Daftar Bounty** | Halaman utama website yang menampilkan semua bounty yang sedang aktif dan telah selesai. | Sebagai Dito, saya ingin bisa melihat daftar bounty yang tersedia, statusnya (Proses/Diterima/Gagal), dan hadiahnya dalam format "1 Etherium". | Wajib |
+| **Bounty Smart Contract** | Logika inti di blockchain lokal (`Hardhat Network`) yang mengelola dana dan aturan bounty. | Logika contract harus bisa menangani skenario "siapa cepat dia dapat" dan memastikan hanya pemenang pertama yang dibayar. | Wajib |
+| **Python Mock Oracle** | Script Python yang mensimulasikan event "PR Merged" dari GitHub. | Script harus membaca `dummy-events.json` dan secara otomatis memicu fungsi persetujuan di smart contract dengan mengirimkan data pemenang. | Wajib |
 
-## 3. Alur Simulasi
-1.  Rian (Arsitek) menjalankan node blockchain lokal (Hardhat).
-2.  Rian men-deploy `BonusEscrow.sol` ke jaringan lokal tersebut.
-3.  Rian mengedit file `dummy-events.json` untuk menambahkan event baru, contoh: `{ "event": "API_COMPLETED", "developer_wallet": "0x...", "bonus": 1.0 }`.
-4.  Rian menjalankan script Python `mock_oracle.py`.
-5.  Script tersebut membaca event baru, terhubung ke node Hardhat lokal, dan memanggil fungsi `releaseBonus()` pada smart contract yang sudah di-deploy.
-6.  Rian memeriksa state di smart contract (melalui dashboard atau script) untuk memastikan bonus telah "terkirim".
+## 4. Alur Simulasi Final (End-to-End untuk Demo)
 
-## 4. Spesifikasi Teknis (Simulasi Lokal)
+1.  **Pembuatan Bounty:**
+    * Sari (pengguna) membuka website dan mengisi form "Buat Bounty Baru" dengan data: `Judul Project`, `Deskripsi Project`, `Link GitHub Repo`, dan `Hadiah` (misal: 1 ETH).
+    * Website mengirim transaksi ke `BountyContract.sol` untuk membuat bounty baru.
+    * Di "Papan Bounty", muncul entri baru dengan **Status: "Proses"**.
+
+2.  **Simulasi Persetujuan PR:**
+    * Seorang programmer (misal: `budi-dev`) menyelesaikan tugasnya.
+    * Sari (pengguna demo) menyetujui pekerjaan tersebut dengan cara mengedit file `dummy-events.json` secara manual dan menambahkan event `PR_MERGED`.
+
+3.  **Eksekusi oleh Oracle & Smart Contract:**
+    * Script `mock_oracle.py` dijalankan (bisa manual atau terjadwal).
+    * Script membaca event baru, mengambil data `winnerWallet`, dan memanggil fungsi `approveWinner()` di `BountyContract.sol`.
+    * Smart contract mentransfer 1 ETH (simulasi) ke `winnerWallet` dan mengubah status internal bounty.
+
+4.  **Pembaruan Otomatis di Website:**
+    * Frontend mendeteksi perubahan state pada smart contract.
+    * Tampilan di "Papan Bounty" untuk bounty yang relevan diperbarui secara otomatis.
+    * **Status** berubah dari "Proses" menjadi **"Diterima"**.
+    * Kolom **Nama User** diisi dengan `budi-dev`.
+    * Kolom **Link GitHub** diisi dengan link PR yang disetujui.
+
+## 5. Spesifikasi Teknis (Simulasi Lokal)
 
 ### Frontend
-- **Tech Stack:** Next.js (React), Ethers.js (dikonfigurasi untuk terhubung ke `http://127.0.0.1:8545/`).
+-   **Framework:** Next.js
+-   **Styling:** Tailwind CSS **v3.4.1**
+-   **Interaksi Blockchain:** Ethers.js, Wagmi
 
 ### Smart Contract
-- **Lingkungan:** **Hardhat Network**.
-- **Bahasa:** Solidity.
-- **Catatan:** **Tidak menggunakan Chainlink** atau oracle publik lainnya.
+-   **Lingkungan:** Hardhat Network (Node RPC: `http://127.0.0.1:8545/`)
+-   **Bahasa:** Solidity
 
-### Simulasi & Data Dummy
-- **Bahasa Pemicu:** **Python 3**.
-- **Library:** `web3.py` untuk berinteraksi dengan node Hardhat lokal.
-- **Sumber Data:** File `dummy-events.json` di root proyek.
+### Simulasi & Oracle
+-   **Bahasa Pemicu:** Python 3
+-   **Library:** `web3.py`
+-   **Sumber Event:** File `dummy-events.json`
 
-## 5. Rencana Rilis (MVP Simulasi Lokal)
-- **Fitur:**
-    1.  Smart contract `BonusEscrow.sol` yang bisa di-deploy ke Hardhat Network.
-    2.  Script Python `mock_oracle.py` yang bisa membaca file JSON dan memanggil satu fungsi di smart contract.
-    3.  File `dummy-events.json` dengan struktur yang telah ditentukan.
-- **Tujuan MVP:** Membuktikan bahwa script Python dapat mengubah state smart contract di lingkungan lokal berdasarkan data dari sebuah file.
+## 6. Struktur Data Kunci
+
+### `dummy-events.json`
+Struktur data untuk event persetujuan PR yang akan dibaca oleh `mock_oracle.py`.
+```json
+[
+  {
+    "eventType": "PR_MERGED",
+    "bountyId": 1,
+    "prLink": "[https://github.com/username/project/pull/1](https://github.com/username/project/pull/1)",
+    "userName": "dito_dev",
+    "winnerWallet": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  }
+]
