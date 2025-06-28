@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { ConnectWallet } from "@/components/ConnectWallet";
 import BountyCard from "@/components/BountyCard";
 import { useContractRead } from 'wagmi';
-import { abi as BonusEscrowABI } from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+import BonusEscrowJson from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+const BonusEscrowABI = BonusEscrowJson.abi;
 import deployedContractAddress from '../../../../python_workspace/deployed_contract_address.json';
 import Link from 'next/link';
 
@@ -26,17 +27,20 @@ const statusMap: { [key: number]: string } = {
 export default function Home() {
   const [bounties, setBounties] = useState<Bounty[]>([]);
 
-  const { data: fetchedBounties, isLoading: isBountiesLoading } = useContractRead({
+  const { data: fetchedBounties, isLoading: isBountiesLoading, isError: isBountiesError, error: bountiesError, refetch } = useContractRead({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'getAllBounties', // Assuming a function to get all bounties
+    watch: true,
+    // Add polling interval to auto-refresh every 10 seconds
+    pollingInterval: 10000,
   });
 
   useEffect(() => {
     if (fetchedBounties) {
       // @ts-ignore
-      const formattedBounties: Bounty[] = fetchedBounties.map((bounty: any, index: number) => ({
-        id: `0x${index.toString(16).padStart(40, '0')}`, // Dummy ID for now, replace with actual bounty ID from contract if available
+      const formattedBounties: Bounty[] = fetchedBounties.map((bounty: any) => ({
+        id: bounty.id.toString(), // Use the actual bounty ID from the contract
         title: bounty.title,
         description: bounty.description,
         reward: bounty.reward,
@@ -67,6 +71,8 @@ export default function Home() {
 
         {isBountiesLoading ? (
           <div className="text-center py-8">Loading bounties...</div>
+        ) : bounties.length === 0 ? (
+          <div className="text-center py-8 text-gray-600">No bounties available. Create a new one!</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {bounties.map((bounty) => (

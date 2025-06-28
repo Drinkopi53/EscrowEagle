@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { useContractWrite, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { parseEther } from 'viem';
-import { abi as BonusEscrowABI } from '../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+import BonusEscrowJson from '../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+const BonusEscrowABI = BonusEscrowJson.abi;
 import deployedContractAddress from '../../../../../python_workspace/deployed_contract_address.json';
 import { useRouter } from 'next/navigation';
 
@@ -14,13 +16,8 @@ const CreateBountyPage: React.FC = () => {
   const router = useRouter();
   const { address } = useAccount();
 
-  const { data: hash, writeContract, isPending, isError, error } = useContractWrite({
-    abi: BonusEscrowABI,
-    address: deployedContractAddress.contractAddress as `0x${string}`,
-    functionName: 'createBounty', // Assuming a function to create bounty
-    // @ts-ignore
-    account: address,
-  });
+  const { data: hash, writeContract, isPending, isError, error } = useContractWrite();
+  const queryClient = useQueryClient();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
@@ -35,9 +32,11 @@ const CreateBountyPage: React.FC = () => {
     try {
       // Assuming createBounty takes title, description, and reward (in wei)
       await writeContract({
+        abi: BonusEscrowABI,
+        address: deployedContractAddress.contractAddress as `0x${string}`,
+        functionName: 'createBounty',
         args: [title, description],
         value: parseEther(reward),
-        // @ts-ignore
         account: address,
       });
     } catch (err) {
@@ -48,6 +47,7 @@ const CreateBountyPage: React.FC = () => {
   React.useEffect(() => {
     if (isConfirmed) {
       alert('Bounty created successfully!');
+      queryClient.invalidateQueries({ queryKey: ['BonusEscrow', deployedContractAddress.contractAddress, 'getAllBounties'] });
       router.push('/'); // Redirect to home page after successful creation
     }
   }, [isConfirmed, router]);

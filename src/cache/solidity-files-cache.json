@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\Games\\MyProject\\EscrowEagle\\src\\contracts\\BonusEscrow.sol": {
-      "lastModificationDate": 1750338135643,
-      "contentHash": "5127af64a015ef1007b246817e34fa13",
+      "lastModificationDate": 1750750831356,
+      "contentHash": "b122c4f07a02447a8bf04d22bef0eb07",
       "sourceName": "contracts/BonusEscrow.sol",
       "solcConfig": {
         "version": "0.8.24",
