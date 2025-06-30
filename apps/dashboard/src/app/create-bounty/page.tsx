@@ -6,12 +6,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { parseEther } from 'viem';
 import BonusEscrowJson from '../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 const BonusEscrowABI = BonusEscrowJson.abi;
-import deployedContractAddress from '../../../../../python_workspace/deployed_contract_address.json';
+import deployedContractAddress from '../../contracts/deployed_contract_address.json';
 import { useRouter } from 'next/navigation';
 
 const CreateBountyPage: React.FC = () => {
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
   const [reward, setReward] = useState('');
   const router = useRouter();
   const { address } = useAccount();
@@ -30,12 +30,12 @@ const CreateBountyPage: React.FC = () => {
       return;
     }
     try {
-      // Assuming createBounty takes title, description, and reward (in wei)
+      // The contract expects a title and a githubUrl.
       await writeContract({
         abi: BonusEscrowABI,
         address: deployedContractAddress.contractAddress as `0x${string}`,
         functionName: 'createBounty',
-        args: [title, description],
+        args: [title, githubUrl],
         value: parseEther(reward),
         account: address,
       });
@@ -50,7 +50,7 @@ const CreateBountyPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['BonusEscrow', deployedContractAddress.contractAddress, 'getAllBounties'] });
       router.push('/'); // Redirect to home page after successful creation
     }
-  }, [isConfirmed, router]);
+  }, [isConfirmed, router, queryClient]);
 
   return (
     <div className="container mx-auto p-4">
@@ -70,14 +70,15 @@ const CreateBountyPage: React.FC = () => {
           />
         </div>
         <div className="mb-4">
-          <label htmlFor="description" className="block text-gray-700 text-sm font-bold mb-2">
-            Description:
+          <label htmlFor="githubUrl" className="block text-gray-700 text-sm font-bold mb-2">
+            GitHub URL:
           </label>
-          <textarea
-            id="description"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+          <input
+            type="url"
+            id="githubUrl"
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            value={githubUrl}
+            onChange={(e) => setGithubUrl(e.target.value)}
             required
           />
         </div>

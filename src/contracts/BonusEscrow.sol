@@ -23,18 +23,19 @@ contract BonusEscrow {
         nextBountyId = 0;
     }
 
-    function deposit() public payable {
-        // This function allows ETH to be sent to the contract.
-        // Further logic for handling the deposited ETH will be added later.
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
     }
 
     struct Bounty {
         uint256 id;
         address creator;
         string title;
-        string description;
+        string githubUrl;
         uint256 reward;
         Status status;
+        address acceptor; // New field to store the address of the client who accepted the bounty
     }
 
     enum Status { Open, Accepted, Completed, Paid }
@@ -47,6 +48,7 @@ contract BonusEscrow {
         uint256 indexed id,
         address indexed creator,
         string title,
+        string githubUrl,
         uint256 reward
     );
     event BountyAccepted(uint256 indexed id, address indexed acceptor);
@@ -55,7 +57,7 @@ contract BonusEscrow {
 
     function createBounty(
         string memory _title,
-        string memory _description
+        string memory _githubUrl
     ) public payable {
         require(msg.value > 0, "Bounty must have a reward");
 
@@ -64,13 +66,14 @@ contract BonusEscrow {
             id: id,
             creator: msg.sender,
             title: _title,
-            description: _description,
+            githubUrl: _githubUrl,
             reward: msg.value,
-            status: Status.Open
+            status: Status.Open,
+            acceptor: address(0)
         });
         bountyIds.push(id);
 
-        emit BountyCreated(id, msg.sender, _title, msg.value);
+        emit BountyCreated(id, msg.sender, _title, _githubUrl, msg.value);
     }
 
     function getBountyStatus(uint256 _bountyId) public view returns (Status) {
@@ -87,20 +90,22 @@ contract BonusEscrow {
     }
 
     function acceptBounty(uint256 _bountyId) public {
-        require(bounties[_bountyId].creator == msg.sender, "Only bounty creator can accept");
         require(bounties[_bountyId].status == Status.Open, "Bounty is not open");
+        // Removed: require(msg.sender == bounties[_bountyId].creator, "Only bounty creator can accept bounty");
+        // Now any client can accept an open bounty.
         bounties[_bountyId].status = Status.Accepted;
+        bounties[_bountyId].acceptor = msg.sender; // Store the acceptor's address (msg.sender is the client)
         emit BountyAccepted(_bountyId, msg.sender);
     }
 
     function completeBounty(uint256 _bountyId) public {
         require(bounties[_bountyId].status == Status.Accepted, "Bounty is not accepted");
-        // In a real scenario, this would be called by the bounty hunter or an oracle
+        require(msg.sender == bounties[_bountyId].acceptor, "Only bounty acceptor can complete bounty");
         bounties[_bountyId].status = Status.Completed;
         emit BountyCompleted(_bountyId);
     }
 
-    function payBounty(uint256 _bountyId, address _winner) public {
+    function payBounty(uint256 _bountyId, address _winner) public onlyOwner {
         require(bounties[_bountyId].status == Status.Completed, "Bounty is not completed");
         require(bounties[_bountyId].reward > 0, "Bounty has no reward");
 
@@ -108,5 +113,11 @@ contract BonusEscrow {
         payable(_winner).transfer(bounties[_bountyId].reward);
         bounties[_bountyId].status = Status.Paid;
         emit BountyPaid(_bountyId, _winner);
+    }
+
+    function rejectBounty(uint256 _bountyId) public onlyOwner {
+        require(bounties[_bountyId].status == Status.Completed, "Bounty is not completed");
+        bounties[_bountyId].status = Status.Accepted;
+        // Optionally emit an event for rejection
     }
 }

@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useContractRead, useContractWrite, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { useContractRead, useContractWrite, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
-import deployedContractAddress from '../../../../../../python_workspace/deployed_contract_address.json';
+import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
 
 interface BountyEvent {
   bountyId: string;
@@ -68,7 +68,7 @@ const BountyDetailPage: React.FC = () => {
 
   useEffect(() => {
     const fetchWinnerInfo = async () => {
-      // @ts-ignore
+      // @ts-expect-error
       if (bountyData && statusMap[bountyData[6]] === 'Accepted') {
         try {
           const response = await fetch('/dummy-events.json');
@@ -96,18 +96,18 @@ const BountyDetailPage: React.FC = () => {
   }
 
   const currentBounty = bountyData ? {
-    // @ts-ignore
+    // @ts-expect-error
     id: bountyData[0].toString(),
     // @ts-ignore
     creator: bountyData[1],
-    // @ts-ignore
+    // @ts-expect-error
     title: bountyData[2],
-    // @ts-ignore
+    // @ts-expect-error
     description: bountyData[3],
     // @ts-ignore
     reward: bountyData[4],
-    // @ts-ignore
-    status: bountyData[6],
+    // @ts-expect-error
+    status: bountyData[5],
   } : null;
 
   if (!currentBounty) {
