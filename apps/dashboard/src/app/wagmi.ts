@@ -9,6 +9,6 @@ export const config = createConfig({
     metaMask(),
   ],
   transports: {
-    [hardhat.id]: http(),
+    [hardhat.id]: http('http://localhost:8545'),
   },
 });

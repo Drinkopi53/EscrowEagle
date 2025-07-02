@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useContractRead, useContractWrite, useAccount } from 'wagmi';
+import { useReadContract, useWriteContract, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
 
@@ -26,16 +26,16 @@ const BountyDetailPage: React.FC = () => {
   const [winnerInfo, setWinnerInfo] = useState<{ userName: string; prLink: string } | null>(null);
   const { address } = useAccount();
 
-  const { data: bountyData, isLoading: isBountyLoading } = useContractRead({
+  const { data: bountyData, isLoading: isBountyLoading } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'bounties',
     args: [BigInt(bountyId)],
   });
 
-  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useContractWrite();
-  const { writeContract: completeBountyWrite, isPending: isCompleting } = useContractWrite();
-  const { writeContract: payBountyWrite, isPending: isPaying } = useContractWrite();
+  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useWriteContract();
+  const { writeContract: completeBountyWrite, isPending: isCompleting } = useWriteContract();
+  const { writeContract: payBountyWrite, isPending: isPaying } = useWriteContract();
 
   const handleAcceptBounty = () => {
     acceptBountyWrite({
@@ -68,8 +68,7 @@ const BountyDetailPage: React.FC = () => {
 
   useEffect(() => {
     const fetchWinnerInfo = async () => {
-      // @ts-expect-error
-      if (bountyData && statusMap[bountyData[6]] === 'Accepted') {
+      if (bountyData && statusMap[Number((bountyData as any).status)] === 'Accepted') {
         try {
           const response = await fetch('/dummy-events.json');
           const events: BountyEvent[] = await response.json();
@@ -96,18 +95,15 @@ const BountyDetailPage: React.FC = () => {
   }
 
   const currentBounty = bountyData ? {
-    // @ts-expect-error
-    id: bountyData[0].toString(),
-    // @ts-ignore
-    creator: bountyData[1],
-    // @ts-expect-error
-    title: bountyData[2],
-    // @ts-expect-error
-    description: bountyData[3],
-    // @ts-ignore
-    reward: bountyData[4],
-    // @ts-expect-error
-    status: bountyData[5],
+    id: (bountyData as any).id.toString(),
+    creator: (bountyData as any).creator,
+    title: (bountyData as any).title,
+    description: (bountyData as any).description,
+    githubUrl: (bountyData as any).githubUrl,
+    reward: (bountyData as any).reward,
+    status: Number((bountyData as any).status),
+    claimant: (bountyData as any).claimant,
+    solutionGithubUrl: (bountyData as any).solutionGithubUrl,
   } : null;
 
   if (!currentBounty) {

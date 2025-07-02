@@ -49,27 +49,32 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
   }, [isAdminView, refetch]);
 
   useEffect(() => {
-    console.log("Client Dashboard: Fetched Bounties from useContractRead:", fetchedBounties);
+    console.log("=== CLIENT DASHBOARD DEBUG ===");
+    console.log("Client Dashboard: Raw fetchedBounties:", fetchedBounties);
+    console.log("Client Dashboard: fetchedBounties type:", typeof fetchedBounties);
+    console.log("Client Dashboard: Is array:", Array.isArray(fetchedBounties));
+    console.log("Client Dashboard: isAdminView:", isAdminView);
+    
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
       const formattedBounties: Bounty[] = fetchedBounties
-        .filter(bounty => bounty && bounty[0] !== undefined) // Ensure bounty and its ID are defined
+        .filter(bounty => bounty && bounty.id !== undefined) // Ensure bounty and its ID are defined
         .map((bounty: any) => ({
-          id: bounty[0].toString(),
-          creator: bounty[1], // creator is at index 1
-          title: bounty[2],
-          description: bounty[3], // description is now at index 3
-          githubUrl: bounty[4], // githubUrl is now at index 4
-          reward: bounty[5], // reward is now at index 5
-          status: Number(bounty[6]), // status is now at index 6
-          claimant: bounty[7], // claimant is now at index 7
-          solutionGithubUrl: bounty[8] || '', // solutionGithubUrl is now at index 8
+          id: bounty.id.toString(),
+          creator: bounty.creator,
+          title: bounty.title,
+          description: bounty.description,
+          githubUrl: bounty.githubUrl,
+          reward: bounty.reward,
+          status: Number(bounty.status),
+          claimant: bounty.claimant,
+          solutionGithubUrl: bounty.solutionGithubUrl || '',
         }));
       
       console.log("Client Dashboard: Formatted Bounties (after mapping):", formattedBounties);
 
-      const filtered = isAdminView
-        ? formattedBounties
-        : formattedBounties;
+      // For client view, show all bounties
+      // For admin view in client dashboard, this shouldn't happen but show all anyway
+      const filtered = formattedBounties;
 
       console.log("Client Dashboard: Filtered Bounties (before setting state):", filtered);
       setBounties(filtered);

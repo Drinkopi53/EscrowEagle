@@ -55,20 +55,26 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    console.log("Admin Dashboard: Fetched Bounties from useContractRead:", fetchedBounties);
+    console.log("=== ADMIN DASHBOARD DEBUG ===");
+    console.log("Admin Dashboard: Raw fetchedBounties:", fetchedBounties);
+    console.log("Admin Dashboard: fetchedBounties type:", typeof fetchedBounties);
+    console.log("Admin Dashboard: Is array:", Array.isArray(fetchedBounties));
+    console.log("Admin Dashboard: Current address:", address);
+    console.log("Admin Dashboard: filterStatus:", filterStatus);
+    
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
       const formattedBounties: Bounty[] = fetchedBounties
-        .filter(bounty => bounty && bounty[0] !== undefined) // Ensure bounty and its ID (bounty[0]) are defined
+        .filter(bounty => bounty && bounty.id !== undefined) // Ensure bounty and its ID are defined
         .map((bounty: any) => ({
-          id: bounty[0].toString(),
-          creator: bounty[1], // creator is at index 1
-          title: bounty[2],
-          description: bounty[3], // description is now at index 3
-          githubUrl: bounty[4], // githubUrl is now at index 4
-          reward: bounty[5], // reward is now at index 5
-          status: Number(bounty[6]), // status is now at index 6
-          claimant: bounty[7], // claimant is now at index 7
-          solutionGithubUrl: bounty[8] || '', // solutionGithubUrl is now at index 8
+          id: bounty.id.toString(),
+          creator: bounty.creator,
+          title: bounty.title,
+          description: bounty.description,
+          githubUrl: bounty.githubUrl,
+          reward: bounty.reward,
+          status: Number(bounty.status),
+          claimant: bounty.claimant,
+          solutionGithubUrl: bounty.solutionGithubUrl || '',
       }));
       console.log("Admin Dashboard: Formatted Bounties (after mapping):", formattedBounties);
       
