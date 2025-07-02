@@ -18,6 +18,7 @@ interface Bounty {
   description: string;
   reward: bigint;
   status: number;
+  acceptor: `0x${string}`; // Added acceptor field
 }
 
 const statusMap: { [key: number]: string } = {
