@@ -1,14 +1,9 @@
 [
   {
-    "bountyId": "0x0000000000000000000000000000000000000001",
-    "eventName": "PR_MERGED",
-    "userName": "octocat",
-    "prLink": "https://github.com/octocat/Spoon-Knife/pull/1"
-  },
-  {
-    "bountyId": "0x0000000000000000000000000000000000000002",
-    "eventName": "PR_MERGED",
-    "userName": "dev_user",
-    "prLink": "https://github.com/dev_user/project/pull/5"
+    "eventType": "PR_MERGED",
+    "bountyId": 1,
+    "prLink": "https://github.com/username/project/pull/1",
+    "userName": "dito_dev",
+    "winnerWallet": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   }
 ]

@@ -7,15 +7,15 @@ import { useAccount } from 'wagmi';
 
 const BonusEscrowABI = BonusEscrowJson.abi;
 
-interface UseApplyForBountyResult {
-  applyForBounty: (bountyId: string) => void;
+interface UseClaimBountyResult {
+  claimBounty: (bountyId: string) => void;
   isLoading: boolean;
   isSuccess: boolean;
   isError: boolean;
   error: Error | null;
 }
 
-export const useApplyForBounty = (): UseApplyForBountyResult => {
+export const useClaimBounty = (): UseClaimBountyResult => {
   const { address } = useAccount();
   const { data: hash, isPending, isError, error, writeContract } = useWriteContract();
 
@@ -23,21 +23,21 @@ export const useApplyForBounty = (): UseApplyForBountyResult => {
     hash,
   });
 
-  const applyForBounty = (bountyId: string) => {
+  const claimBounty = (bountyId: string) => {
     if (!address) {
-      console.error("Wallet not connected. Cannot apply for bounty.");
+      console.error("Wallet not connected. Cannot claim bounty.");
       return;
     }
     writeContract({
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
-      functionName: 'acceptBounty',
+      functionName: 'claimBounty',
       args: [bountyId],
     });
   };
 
   return {
-    applyForBounty,
+    claimBounty,
     isLoading: isPending || isTxLoading,
     isSuccess: isTxSuccess,
     isError,

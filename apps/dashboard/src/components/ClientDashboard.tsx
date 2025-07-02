@@ -2,61 +2,84 @@
 
 import React, { useEffect, useState } from 'react';
 import BountyCard from "@/components/BountyCard";
-import { useContractRead } from 'wagmi';
+import { useReadContract } from 'wagmi';
+import { ethers } from 'ethers';
 import BonusEscrowJson from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 const BonusEscrowABI = BonusEscrowJson.abi;
 import deployedContractAddress from '../contracts/deployed_contract_address.json';
 
 interface Bounty {
   id: string;
+  creator: string;
   title: string;
+  description: string; // Added description to Bounty interface
   githubUrl: string;
   reward: bigint;
   status: number;
-  acceptor: string; // Add acceptor to the interface
+  claimant: string;
+  solutionGithubUrl?: string; // Add solutionGithubUrl to Bounty interface
 }
 
 const statusMap: { [key: number]: string } = {
   0: 'Open',
-  1: 'Accepted',
-  2: 'Completed',
-  3: 'Paid',
+  1: 'Claimed',
+  2: 'Paid',
 };
 
 export default function ClientDashboard({ isAdminView }: { isAdminView: boolean }) {
   const [bounties, setBounties] = useState<Bounty[]>([]);
 
-  const { data: fetchedBounties, isLoading: isBountiesLoading, refetch } = useContractRead({
+  const { data: fetchedBounties, isLoading: isBountiesLoading, refetch } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'getAllBounties',
+    query: {
+      enabled: true,
+    },
   });
 
   useEffect(() => {
     const interval = setInterval(() => {
       refetch();
-    }, 15000); // Refetch every 15 seconds to reduce load
+    }, 5000); // Refetch every 5 seconds to ensure timely updates
     return () => clearInterval(interval);
   }, [refetch]);
-
+  useEffect(() => {
+    refetch(); // Refetch immediately when component mounts or isAdminView changes
+  }, [isAdminView, refetch]);
 
   useEffect(() => {
-    console.log("Fetched Bounties (raw):", fetchedBounties);
+    console.log("Client Dashboard: Fetched Bounties from useContractRead:", fetchedBounties);
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
       const formattedBounties: Bounty[] = fetchedBounties
-        .filter(bounty => bounty && bounty.id !== undefined &&
-          (Number(bounty.status) === 0 || (isAdminView && (Number(bounty.status) === 2 || Number(bounty.status) === 3)))) // Show 'Open' for clients, 'Open', 'Completed', and 'Paid' for admin
+        .filter(bounty => bounty && bounty[0] !== undefined) // Ensure bounty and its ID are defined
         .map((bounty: any) => ({
-          id: bounty.id.toString(),
-          title: bounty.title,
-          githubUrl: bounty.githubUrl,
-          reward: bounty.reward,
-          status: Number(bounty.status),
-          acceptor: bounty.acceptor,
-      }));
-      setBounties(formattedBounties);
+          id: bounty[0].toString(),
+          creator: bounty[1], // creator is at index 1
+          title: bounty[2],
+          description: bounty[3], // description is now at index 3
+          githubUrl: bounty[4], // githubUrl is now at index 4
+          reward: bounty[5], // reward is now at index 5
+          status: Number(bounty[6]), // status is now at index 6
+          claimant: bounty[7], // claimant is now at index 7
+          solutionGithubUrl: bounty[8] || '', // solutionGithubUrl is now at index 8
+        }));
+      
+      console.log("Client Dashboard: Formatted Bounties (after mapping):", formattedBounties);
+
+      const filtered = isAdminView
+        ? formattedBounties
+        : formattedBounties;
+
+      console.log("Client Dashboard: Filtered Bounties (before setting state):", filtered);
+      setBounties(filtered);
     }
-  }, [fetchedBounties]);
+  }, [fetchedBounties, isAdminView, refetch]);
+
+  useEffect(() => {
+    console.log("Bounties state:", bounties);
+    console.log("Bounties length:", bounties.length);
+  }, [bounties]);
 
   return (
     <main className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-6">
@@ -83,12 +106,14 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
               key={bounty.id}
               id={bounty.id}
               title={bounty.title}
+              description={bounty.description} // Pass description
               githubUrl={bounty.githubUrl}
-              reward={`${Number(bounty.reward) / 1e18} ETH`}
+              reward={`${ethers.formatEther(bounty.reward)} ETH`}
               rewardAmount={bounty.reward}
               status={statusMap[bounty.status]}
               isAdminView={isAdminView}
-              acceptorAddress={bounty.acceptor} // Pass acceptor address
+              claimantAddress={bounty.claimant}
+              solutionGithubUrl={bounty.solutionGithubUrl} // Pass solutionGithubUrl
             />
           ))}
         </div>

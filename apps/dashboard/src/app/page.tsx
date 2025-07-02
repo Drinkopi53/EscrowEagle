@@ -28,7 +28,7 @@ export default function Home() {
           <ConnectWallet />
         </div>
       </header>
-      {isAdminView && isAdmin ? <AdminDashboard /> : <ClientDashboard isAdminView={false} />}
+      {isAdminView && isAdmin ? <AdminDashboard /> : <ClientDashboard isAdminView={isAdminView} />}
     </div>
   );
 }

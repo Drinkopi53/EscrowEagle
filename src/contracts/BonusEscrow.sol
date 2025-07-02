@@ -32,16 +32,18 @@ contract BonusEscrow {
         uint256 id;
         address creator;
         string title;
+        string description; // New field for bounty description
         string githubUrl;
         uint256 reward;
         Status status;
-        address acceptor; // New field to store the address of the client who accepted the bounty
+        address claimant;
+        string solutionGithubUrl; // New field for client-submitted solution URL
     }
 
-    enum Status { Open, Accepted, Completed, Paid }
+    enum Status { Open, Claimed, Paid }
 
-    uint256 nextBountyId;
-    mapping(uint256 => Bounty) bounties;
+    uint256 public nextBountyId;
+    mapping(uint256 => Bounty) public bounties;
     uint256[] bountyIds;
 
     event BountyCreated(
@@ -51,14 +53,14 @@ contract BonusEscrow {
         string githubUrl,
         uint256 reward
     );
-    event BountyAccepted(uint256 indexed id, address indexed acceptor);
-    event BountyCompleted(uint256 indexed id);
-    event BountyPaid(uint256 indexed id, address indexed winner);
+    event BountyClaimed(uint256 indexed id, address indexed claimant);
+    event BountyApproved(uint256 indexed id, address indexed claimant, uint256 reward);
 
     function createBounty(
         string memory _title,
+        string memory _description, // Added description parameter
         string memory _githubUrl
-    ) public payable {
+    ) public payable onlyOwner {
         require(msg.value > 0, "Bounty must have a reward");
 
         uint256 id = nextBountyId++;
@@ -66,14 +68,24 @@ contract BonusEscrow {
             id: id,
             creator: msg.sender,
             title: _title,
+            description: _description, // Store the description
             githubUrl: _githubUrl,
             reward: msg.value,
             status: Status.Open,
-            acceptor: address(0)
+            claimant: address(0),
+            solutionGithubUrl: "" // Initialize with empty string
         });
         bountyIds.push(id);
 
         emit BountyCreated(id, msg.sender, _title, _githubUrl, msg.value);
+    }
+
+    function submitSolution(uint256 _bountyId, string memory _solutionGithubUrl) public {
+        require(bounties[_bountyId].status == Status.Claimed, "Bounty has not been claimed or is already paid.");
+        require(bounties[_bountyId].claimant == msg.sender, "Only the claimant can submit a solution.");
+        
+        bounties[_bountyId].solutionGithubUrl = _solutionGithubUrl;
+        // Optionally emit an event for solution submission
     }
 
     function getBountyStatus(uint256 _bountyId) public view returns (Status) {
@@ -89,35 +101,28 @@ contract BonusEscrow {
         return allBounties;
     }
 
-    function acceptBounty(uint256 _bountyId) public {
-        require(bounties[_bountyId].status == Status.Open, "Bounty is not open");
-        // Removed: require(msg.sender == bounties[_bountyId].creator, "Only bounty creator can accept bounty");
-        // Now any client can accept an open bounty.
-        bounties[_bountyId].status = Status.Accepted;
-        bounties[_bountyId].acceptor = msg.sender; // Store the acceptor's address (msg.sender is the client)
-        emit BountyAccepted(_bountyId, msg.sender);
+    function claimBounty(uint256 _bountyId) public {
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claims.");
+        
+        bounties[_bountyId].status = Status.Claimed;
+        bounties[_bountyId].claimant = msg.sender;
+        
+        emit BountyClaimed(_bountyId, msg.sender);
     }
 
-    function completeBounty(uint256 _bountyId) public {
-        require(bounties[_bountyId].status == Status.Accepted, "Bounty is not accepted");
-        require(msg.sender == bounties[_bountyId].acceptor, "Only bounty acceptor can complete bounty");
-        bounties[_bountyId].status = Status.Completed;
-        emit BountyCompleted(_bountyId);
-    }
+    function approveBounty(uint256 _bountyId) public onlyOwner {
+        require(bounties[_bountyId].status == Status.Claimed, "Bounty has not been claimed.");
+        
+        Bounty storage bounty = bounties[_bountyId];
+        address claimant = bounty.claimant;
+        uint256 reward = bounty.reward;
 
-    function payBounty(uint256 _bountyId, address _winner) public onlyOwner {
-        require(bounties[_bountyId].status == Status.Completed, "Bounty is not completed");
-        require(bounties[_bountyId].reward > 0, "Bounty has no reward");
-
-        // Transfer reward to the winner
-        payable(_winner).transfer(bounties[_bountyId].reward);
-        bounties[_bountyId].status = Status.Paid;
-        emit BountyPaid(_bountyId, _winner);
-    }
-
-    function rejectBounty(uint256 _bountyId) public onlyOwner {
-        require(bounties[_bountyId].status == Status.Completed, "Bounty is not completed");
-        bounties[_bountyId].status = Status.Accepted;
-        // Optionally emit an event for rejection
+        require(claimant != address(0), "No one has claimed this bounty.");
+        
+        bounty.status = Status.Paid;
+        
+        payable(claimant).transfer(reward);
+        
+        emit BountyApproved(_bountyId, claimant, reward);
     }
 }
