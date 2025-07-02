@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useContractRead, useContractWrite, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../../../../python_workspace/deployed_contract_address.json';
+import { useIsAdmin } from '../../../hooks/useIsAdmin';
 
 interface BountyEvent {
   bountyId: string;
@@ -15,16 +16,18 @@ interface BountyEvent {
 
 const statusMap: { [key: number]: string } = {
   0: 'Open',
-  1: 'Accepted',
-  2: 'Completed',
-  3: 'Paid',
+  1: 'Claimed', // New status
+  2: 'Accepted',
+  3: 'Completed',
+  4: 'Paid',
 };
 
 const BountyDetailPage: React.FC = () => {
   const params = useParams();
   const bountyId = params.id as string;
   const [winnerInfo, setWinnerInfo] = useState<{ userName: string; prLink: string } | null>(null);
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { isAdmin, isLoadingAdmin, adminError } = useIsAdmin();
 
   const { data: bountyData, isLoading: isBountyLoading } = useContractRead({
     address: deployedContractAddress.contractAddress as `0x${string}`,
@@ -33,9 +36,25 @@ const BountyDetailPage: React.FC = () => {
     args: [BigInt(bountyId)],
   });
 
-  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useContractWrite();
-  const { writeContract: completeBountyWrite, isPending: isCompleting } = useContractWrite();
-  const { writeContract: payBountyWrite, isPending: isPaying } = useContractWrite();
+  const { data: acceptHash, writeContract: acceptBountyWrite, isPending: isAccepting } = useContractWrite();
+  const { isLoading: isAcceptingConfirming, isSuccess: isAcceptingConfirmed } = useWaitForTransactionReceipt({
+    hash: acceptHash,
+  });
+
+  const { data: completeHash, writeContract: completeBountyWrite, isPending: isCompleting } = useContractWrite();
+  const { isLoading: isCompletingConfirming, isSuccess: isCompletingConfirmed } = useWaitForTransactionReceipt({
+    hash: completeHash,
+  });
+
+  const { data: claimHash, writeContract: claimBountyWrite, isPending: isClaiming } = useContractWrite();
+  const { isLoading: isClaimingConfirming, isSuccess: isClaimingConfirmed } = useWaitForTransactionReceipt({
+    hash: claimHash,
+  });
+
+  const { data: payHash, writeContract: payBountyWrite, isPending: isPaying } = useContractWrite();
+  const { isLoading: isPayingConfirming, isSuccess: isPayingConfirmed } = useWaitForTransactionReceipt({
+    hash: payHash,
+  });
 
   const handleAcceptBounty = () => {
     acceptBountyWrite({
@@ -55,6 +74,20 @@ const BountyDetailPage: React.FC = () => {
     });
   };
 
+  const handleClaimBounty = () => {
+    if (!isConnected) {
+      alert('Please connect your wallet to claim bounties.');
+      return;
+    }
+    claimBountyWrite({
+      address: deployedContractAddress.contractAddress as `0x${string}`,
+      abi: BonusEscrowABI,
+      functionName: 'claimBounty',
+      args: [BigInt(bountyId)],
+      account: address,
+    });
+  };
+
   const handlePayBounty = () => {
     // In a real app, _winner would be determined by the oracle or user input
     // For this demo, we'll use a dummy winner address or the connected account
@@ -67,6 +100,13 @@ const BountyDetailPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (isAcceptingConfirmed || isCompletingConfirmed || isPayingConfirmed || isClaimingConfirmed) {
+      // Invalidate queries to refetch bounty data after a transaction
+      // This will trigger a re-render with the updated bounty status
+      // For simplicity, we're not using queryClient.invalidateQueries here,
+      // but a full re-fetch of bountyData will happen due to the dependency array.
+    }
+
     const fetchWinnerInfo = async () => {
       // @ts-ignore
       if (bountyData && statusMap[bountyData[6]] === 'Accepted') {
@@ -89,10 +129,14 @@ const BountyDetailPage: React.FC = () => {
     };
 
     fetchWinnerInfo();
-  }, [bountyData, bountyId]);
+  }, [bountyData, bountyId, isAcceptingConfirmed, isCompletingConfirmed, isPayingConfirmed, isClaimingConfirmed]);
 
-  if (isBountyLoading) {
+  if (isBountyLoading || isLoadingAdmin) {
     return <div className="text-center py-8">Loading bounty details...</div>;
+  }
+
+  if (adminError) {
+    return <div className="text-center py-8 text-red-500">Error loading admin status: {adminError.message}</div>;
   }
 
   const currentBounty = bountyData ? {
@@ -108,6 +152,8 @@ const BountyDetailPage: React.FC = () => {
     reward: bountyData[4],
     // @ts-ignore
     status: bountyData[6],
+    // @ts-ignore
+    acceptor: bountyData[7], // New field
   } : null;
 
   if (!currentBounty) {
@@ -122,6 +168,9 @@ const BountyDetailPage: React.FC = () => {
         <p className="text-gray-700 mb-4">{currentBounty.description}</p>
         <p className="text-gray-700 mb-2">Reward: {`${Number(currentBounty.reward) / 1e18} Etherium`}</p>
         <p className="text-gray-700 mb-2">Status: {statusMap[currentBounty.status]}</p>
+        {statusMap[currentBounty.status] === 'Claimed' && currentBounty.acceptor && (
+          <p className="text-gray-700 mb-2">Claimed by: {currentBounty.acceptor}</p>
+        )}
         <p className="text-gray-700 mb-2">Creator: {currentBounty.creator}</p>
 
         {winnerInfo && (
@@ -145,32 +194,93 @@ const BountyDetailPage: React.FC = () => {
         )}
 
         <div className="mt-6 flex space-x-4">
-          {statusMap[currentBounty.status] === 'Open' && currentBounty.creator === address && (
-            <button
-              onClick={handleAcceptBounty}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isAccepting}
-            >
-              {isAccepting ? 'Accepting...' : 'Accept Bounty'}
-            </button>
+          {/* Actions for Bounty Creator */}
+          {currentBounty.creator === address && (
+            <>
+              {statusMap[currentBounty.status] === 'Claimed' && (
+                <button
+                  onClick={handleAcceptBounty}
+                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isAccepting || isAcceptingConfirming}
+                >
+                  {isAccepting || isAcceptingConfirming ? 'Accepting...' : 'Accept Claim'}
+                </button>
+              )}
+              {statusMap[currentBounty.status] === 'Accepted' && (
+                <button
+                  onClick={handleCompleteBounty}
+                  className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isCompleting || isCompletingConfirming}
+                >
+                  {isCompleting || isCompletingConfirming ? 'Completing...' : 'Complete Bounty'}
+                </button>
+              )}
+              {statusMap[currentBounty.status] === 'Completed' && isAdmin && (
+                <button
+                  onClick={handlePayBounty}
+                  className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isPaying || isPayingConfirming}
+                >
+                  {isPaying || isPayingConfirming ? 'Paying...' : 'Pay Bounty'}
+                </button>
+              )}
+            </>
           )}
-          {statusMap[currentBounty.status] === 'Accepted' && (
-            <button
-              onClick={handleCompleteBounty}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isCompleting}
-            >
-              {isCompleting ? 'Completing...' : 'Complete Bounty'}
-            </button>
+
+          {/* Actions for Non-Creator Clients */}
+          {currentBounty.creator !== address && (
+            <>
+              {statusMap[currentBounty.status] === 'Open' && (
+                <button
+                  onClick={handleClaimBounty}
+                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isClaiming || isClaimingConfirming}
+                >
+                  {isClaiming || isClaimingConfirming ? 'Claiming...' : 'Claim Bounty'}
+                </button>
+              )}
+              {statusMap[currentBounty.status] === 'Claimed' && (
+                <button
+                  className="bg-gray-400 text-white font-bold py-2 px-4 rounded cursor-not-allowed"
+                  disabled
+                >
+                  Claimed
+                </button>
+              )}
+              {statusMap[currentBounty.status] === 'Accepted' && (
+                <button
+                  onClick={handleCompleteBounty}
+                  className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isCompleting || isCompletingConfirming}
+                >
+                  {isCompleting || isCompletingConfirming ? 'Submitting...' : 'Submit Solution'}
+                </button>
+              )}
+            </>
           )}
-          {statusMap[currentBounty.status] === 'Completed' && currentBounty.creator === address && (
-            <button
-              onClick={handlePayBounty}
-              className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isPaying}
-            >
-              {isPaying ? 'Paying...' : 'Pay Bounty'}
-            </button>
+
+          {/* Actions for Non-Creator Clients */}
+          {currentBounty.creator !== address && (
+            <>
+              {statusMap[currentBounty.status] === 'Open' && (
+                <button
+                  onClick={handleAcceptBounty}
+                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isAccepting || isAcceptingConfirming}
+                >
+                  {isAccepting || isAcceptingConfirming ? 'Claiming...' : 'Claim Bounty'}
+                </button>
+              )}
+              {statusMap[currentBounty.status] === 'Accepted' && (
+                <button
+                  onClick={handleCompleteBounty}
+                  className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+                  disabled={isCompleting || isCompletingConfirming}
+                >
+                  {isCompleting || isCompletingConfirming ? 'Submitting...' : 'Submit Solution'}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

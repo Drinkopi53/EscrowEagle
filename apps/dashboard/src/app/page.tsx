@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ConnectWallet } from "@/components/ConnectWallet";
 import BountyCard from "@/components/BountyCard";
-import { useContractRead } from 'wagmi';
+import { useContractRead, useAccount, useDisconnect } from 'wagmi';
 import BonusEscrowJson from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 const BonusEscrowABI = BonusEscrowJson.abi;
 import deployedContractAddress from '../../../../python_workspace/deployed_contract_address.json';
@@ -15,6 +15,7 @@ interface Bounty {
   description: string;
   reward: bigint;
   status: number; // Assuming status is an enum or integer
+  creator: `0x${string}`; // Add creator property
 }
 
 const statusMap: { [key: number]: string } = {
@@ -24,19 +25,24 @@ const statusMap: { [key: number]: string } = {
   3: 'Paid',
 };
 
+const ADMIN_ACCOUNT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`; // Account 3 (Admin)
+
 export default function Home() {
   const [bounties, setBounties] = useState<Bounty[]>([]);
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const { data: fetchedBounties, isLoading: isBountiesLoading, isError: isBountiesError, error: bountiesError, refetch } = useContractRead({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'getAllBounties', // Assuming a function to get all bounties
-    watch: true,
-    // Add polling interval to auto-refresh every 10 seconds
-    pollingInterval: 10000,
   });
 
   useEffect(() => {
+    if (isConnected && address !== ADMIN_ACCOUNT) {
+      disconnect();
+      alert('This page requires the Admin account. Please connect Account 3 (0x70997970C51812dc3A010C7d01b50e0d17dc79C8).');
+    }
     if (fetchedBounties) {
       // @ts-ignore
       const formattedBounties: Bounty[] = fetchedBounties.map((bounty: any) => ({
@@ -48,7 +54,19 @@ export default function Home() {
       }));
       setBounties(formattedBounties);
     }
-  }, [fetchedBounties]);
+  }, [fetchedBounties, address, isConnected, disconnect]);
+
+  if (!isConnected || address !== ADMIN_ACCOUNT) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center py-10 px-4 sm:px-6 lg:px-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Admin Dashboard Access</h1>
+        <p className="text-lg text-gray-700 mb-6">
+          Please connect with Account 3 (Admin) to access this dashboard.
+        </p>
+        <ConnectWallet />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8">
@@ -83,6 +101,9 @@ export default function Home() {
                 description={bounty.description}
                 reward={`${Number(bounty.reward) / 1e18} Etherium`}
                 status={statusMap[bounty.status]}
+                creator={bounty.creator} // Pass creator to BountyCard
+                currentAccount={address} // Pass current account to BountyCard
+                isAdmin={address === ADMIN_ACCOUNT} // Pass isAdmin prop
               />
             ))}
           </div>

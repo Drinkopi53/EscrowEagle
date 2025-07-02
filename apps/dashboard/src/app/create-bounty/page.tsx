@@ -8,13 +8,16 @@ import BonusEscrowJson from '../../../../../src/artifacts/contracts/BonusEscrow.
 const BonusEscrowABI = BonusEscrowJson.abi;
 import deployedContractAddress from '../../../../../python_workspace/deployed_contract_address.json';
 import { useRouter } from 'next/navigation';
+import { ConnectWallet } from '../../components/ConnectWallet';
+import { useIsAdmin } from '../../hooks/useIsAdmin';
 
 const CreateBountyPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [reward, setReward] = useState('');
   const router = useRouter();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { isAdmin, isLoadingAdmin, adminError } = useIsAdmin();
 
   const { data: hash, writeContract, isPending, isError, error } = useContractWrite();
   const queryClient = useQueryClient();
@@ -51,6 +54,37 @@ const CreateBountyPage: React.FC = () => {
       router.push('/'); // Redirect to home page after successful creation
     }
   }, [isConfirmed, router]);
+
+  if (isLoadingAdmin) {
+    return <div className="text-center py-8">Loading admin status...</div>;
+  }
+
+  if (adminError) {
+    return <div className="text-center py-8 text-red-500">Error loading admin status: {adminError.message}</div>;
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto p-4 text-center">
+        <h1 className="text-3xl font-bold mb-6">Connect Your Wallet</h1>
+        <p className="text-lg mb-4">Please connect your MetaMask wallet to create bounties.</p>
+        <ConnectWallet />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto p-4 text-center">
+        <h1 className="text-3xl font-bold mb-6">Access Denied</h1>
+        <p className="text-lg mb-4">
+          You must be the contract administrator to create new bounties.
+          Please switch to the administrator MetaMask account or disconnect.
+        </p>
+        <ConnectWallet />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4">

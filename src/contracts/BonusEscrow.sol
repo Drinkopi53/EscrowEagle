@@ -35,9 +35,10 @@ contract BonusEscrow {
         string description;
         uint256 reward;
         Status status;
+        address acceptor; // New field
     }
 
-    enum Status { Open, Accepted, Completed, Paid }
+    enum Status { Open, Claimed, Accepted, Completed, Paid } // New status
 
     uint256 nextBountyId;
     mapping(uint256 => Bounty) bounties;
@@ -49,6 +50,7 @@ contract BonusEscrow {
         string title,
         uint256 reward
     );
+    event BountyClaimed(uint256 indexed id, address indexed claimant); // New event
     event BountyAccepted(uint256 indexed id, address indexed acceptor);
     event BountyCompleted(uint256 indexed id);
     event BountyPaid(uint256 indexed id, address indexed winner);
@@ -66,7 +68,8 @@ contract BonusEscrow {
             title: _title,
             description: _description,
             reward: msg.value,
-            status: Status.Open
+            status: Status.Open,
+            acceptor: address(0) // Initialize acceptor to address(0)
         });
         bountyIds.push(id);
 
@@ -86,11 +89,21 @@ contract BonusEscrow {
         return allBounties;
     }
 
+    function claimBounty(uint256 _bountyId) public {
+        require(_bountyId < nextBountyId, "Bounty does not exist");
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claiming");
+        require(bounties[_bountyId].creator != msg.sender, "Creator cannot claim their own bounty");
+
+        bounties[_bountyId].status = Status.Claimed;
+        bounties[_bountyId].acceptor = msg.sender;
+        emit BountyClaimed(_bountyId, msg.sender);
+    }
+
     function acceptBounty(uint256 _bountyId) public {
         require(bounties[_bountyId].creator == msg.sender, "Only bounty creator can accept");
-        require(bounties[_bountyId].status == Status.Open, "Bounty is not open");
+        require(bounties[_bountyId].status == Status.Claimed, "Bounty is not claimed yet"); // Changed from Status.Open
         bounties[_bountyId].status = Status.Accepted;
-        emit BountyAccepted(_bountyId, msg.sender);
+        emit BountyAccepted(_bountyId, bounties[_bountyId].acceptor); // Emit acceptor, not msg.sender
     }
 
     function completeBounty(uint256 _bountyId) public {
