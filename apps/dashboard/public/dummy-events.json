@@ -1,0 +1,9 @@
+[
+  {
+    "eventType": "PR_MERGED",
+    "bountyId": 1,
+    "prLink": "https://github.com/username/project/pull/1",
+    "userName": "dito_dev",
+    "winnerWallet": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  }
+]
