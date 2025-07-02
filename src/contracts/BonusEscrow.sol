@@ -38,7 +38,7 @@ contract BonusEscrow {
         address acceptor; // New field
     }
 
-    enum Status { Open, Claimed, Accepted, Completed, Paid } // New status
+    enum Status { Open, Accepted, Completed, Paid } // Removed Claimed status
 
     uint256 nextBountyId;
     mapping(uint256 => Bounty) bounties;
@@ -50,7 +50,7 @@ contract BonusEscrow {
         string title,
         uint256 reward
     );
-    event BountyClaimed(uint256 indexed id, address indexed claimant); // New event
+    // event BountyClaimed(uint256 indexed id, address indexed claimant); // Commented out: No longer an on-chain event
     event BountyAccepted(uint256 indexed id, address indexed acceptor);
     event BountyCompleted(uint256 indexed id);
     event BountyPaid(uint256 indexed id, address indexed winner);
@@ -89,21 +89,27 @@ contract BonusEscrow {
         return allBounties;
     }
 
-    function claimBounty(uint256 _bountyId) public {
+    // function claimBounty(uint256 _bountyId) public {
+    //     require(_bountyId < nextBountyId, "Bounty does not exist");
+    //     require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claiming");
+    //     require(bounties[_bountyId].creator != msg.sender, "Creator cannot claim their own bounty");
+
+    //     bounties[_bountyId].status = Status.Claimed;
+    //     bounties[_bountyId].acceptor = msg.sender;
+    //     emit BountyClaimed(_bountyId, msg.sender);
+    // }
+
+    function acceptClaim(uint256 _bountyId, address _claimant) public {
         require(_bountyId < nextBountyId, "Bounty does not exist");
-        require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claiming");
-        require(bounties[_bountyId].creator != msg.sender, "Creator cannot claim their own bounty");
+        Bounty storage bounty = bounties[_bountyId]; // Use storage pointer for efficiency
 
-        bounties[_bountyId].status = Status.Claimed;
-        bounties[_bountyId].acceptor = msg.sender;
-        emit BountyClaimed(_bountyId, msg.sender);
-    }
+        require(bounty.creator == msg.sender, "Only bounty creator can accept a claim");
+        require(bounty.status == Status.Open, "Bounty is not open or already accepted"); // Bounty must be Open to accept a claim
+        require(_claimant != address(0), "Claimant address cannot be zero");
 
-    function acceptBounty(uint256 _bountyId) public {
-        require(bounties[_bountyId].creator == msg.sender, "Only bounty creator can accept");
-        require(bounties[_bountyId].status == Status.Claimed, "Bounty is not claimed yet"); // Changed from Status.Open
-        bounties[_bountyId].status = Status.Accepted;
-        emit BountyAccepted(_bountyId, bounties[_bountyId].acceptor); // Emit acceptor, not msg.sender
+        bounty.status = Status.Accepted;
+        bounty.acceptor = _claimant; // Set the provided claimant as the acceptor
+        emit BountyAccepted(_bountyId, _claimant);
     }
 
     function completeBounty(uint256 _bountyId) public {

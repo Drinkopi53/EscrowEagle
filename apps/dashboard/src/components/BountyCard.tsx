@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react'; // Import useState
+import { type Bounty } from '../app/bounties/page'; // Import Bounty type
 
 interface BountyCardProps {
   id: string;
@@ -28,8 +29,9 @@ const getStatusColor = (status: string) => {
   }
 };
 
-import { useContractWrite, useWaitForTransactionReceipt, useSendTransaction } from 'wagmi';
-import { encodeFunctionData } from 'viem';
+import { useContractWrite, useWaitForTransactionReceipt } from 'wagmi';
+// import { useSendTransaction } from 'wagmi'; // Removed
+// import { encodeFunctionData } from 'viem'; // Removed
 import { abi as BonusEscrowABI } from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../../python_workspace/deployed_contract_address.json';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,19 +39,18 @@ import { useQueryClient } from '@tanstack/react-query';
 const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward, status, creator, currentAccount, isAdmin }) => {
   const statusColorClass = getStatusColor(status);
   const queryClient = useQueryClient();
+  const [optimisticallyClaimed, setOptimisticallyClaimed] = useState(false);
 
   // Log props for debugging
   console.log(`Bounty ID: ${id}, Status: ${status}, Creator: ${creator}, Current Account: ${currentAccount}, Is Admin: ${isAdmin}`);
 
-  const { data: acceptHash, writeContract: acceptBountyWrite, isPending: isAccepting } = useContractWrite();
-  const { isLoading: isAcceptingConfirming, isSuccess: isAcceptingConfirmed } = useWaitForTransactionReceipt({
-    hash: acceptHash,
+  // Renamed for clarity, will be configured for 'acceptClaim'
+  const { data: acceptClaimHash, writeContract: acceptClaimWrite, isPending: isAcceptingClaim } = useContractWrite();
+  const { isLoading: isAcceptingClaimConfirming, isSuccess: isAcceptingClaimConfirmed } = useWaitForTransactionReceipt({
+    hash: acceptClaimHash, // Updated hash variable
   });
 
-  const { data: claimHash, sendTransaction: claimBountySendTransaction, isPending: isClaiming } = useSendTransaction();
-  const { isLoading: isClaimingConfirming, isSuccess: isClaimingConfirmed } = useWaitForTransactionReceipt({
-    hash: claimHash,
-  });
+  // Hooks for claimBounty (on-chain) are removed as it's now optimistic and handled by local state
 
   const { data: completeHash, writeContract: completeBountyWrite, isPending: isCompleting } = useContractWrite();
   const { isLoading: isCompletingConfirming, isSuccess: isCompletingConfirmed } = useWaitForTransactionReceipt({
@@ -61,30 +62,38 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward,
       alert('Please connect your wallet to claim bounties.');
       return;
     }
-
-    const calldata = encodeFunctionData({
-      abi: BonusEscrowABI,
-      functionName: 'claimBounty',
-      args: [BigInt(id)],
-    });
-
-    claimBountySendTransaction({
-      to: deployedContractAddress.contractAddress as `0x${string}`,
-      data: calldata,
-      value: BigInt(0), // Explicitly set value to 0
-    });
+    // Optimistic UI update
+    setOptimisticallyClaimed(true);
+    alert('Your claim has been noted. The bounty creator will review and confirm valid claims.');
+    // No on-chain transaction for claiming by client anymore
   };
 
-  const handleAcceptBounty = () => {
+  const handleAcceptClaim = () => {
     if (!currentAccount) {
-      alert('Please connect your wallet to accept bounties.');
+      alert('Please connect your wallet.');
       return;
     }
-    acceptBountyWrite({
+    if (currentAccount !== creator) {
+      alert('Only the bounty creator can accept a claim.');
+      return;
+    }
+
+    const claimantAddress = prompt('Enter the Ethereum address of the client whose claim you want to accept:');
+    if (!claimantAddress) {
+      alert('Claimant address is required.');
+      return;
+    }
+    // Basic address validation (length, 0x prefix) - can be improved
+    if (!/^0x[a-fA-F0-9]{40}$/.test(claimantAddress)) {
+      alert('Invalid Ethereum address format.');
+      return;
+    }
+
+    acceptClaimWrite({
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
-      functionName: 'acceptBounty',
-      args: [BigInt(id)],
+      functionName: 'acceptClaim', // Updated function name
+      args: [BigInt(id), claimantAddress as `0x${string}`], // Added claimantAddress
       account: currentAccount,
     });
   };
@@ -104,72 +113,79 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward,
   };
 
   React.useEffect(() => {
-    if (isAcceptingConfirmed || isCompletingConfirmed || isClaimingConfirmed) {
+    // Updated to use isAcceptingClaimConfirmed
+    if (isAcceptingClaimConfirmed || isCompletingConfirmed) {
       queryClient.invalidateQueries({ queryKey: ['BonusEscrow', deployedContractAddress.contractAddress, 'getAllBounties'] });
       queryClient.invalidateQueries({ queryKey: ['BonusEscrow', deployedContractAddress.contractAddress, 'bounties', BigInt(id)] });
+      // Potentially reset optimistic claim state if this card was accepted by this creator
+      if (isAcceptingClaimConfirmed && currentAccount === creator) {
+        setOptimisticallyClaimed(false);
+      }
     }
-  }, [isAcceptingConfirmed, isCompletingConfirmed, isClaimingConfirmed, queryClient, id]);
+  }, [isAcceptingClaimConfirmed, isCompletingConfirmed, queryClient, id, currentAccount, creator]);
 
   const renderActionButton = () => {
     // Case 1: Bounty is Open
     if (status === 'Open') {
-      // If the current user is the creator or an admin, they can't claim, so show no button
-      if (creator === currentAccount || isAdmin) {
-        return null;
-      }
-      // Otherwise, show the "Claim Bounty" button
-      return (
-        <button
-          onClick={handleClaimBounty}
-          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm"
-          disabled={isClaiming || isClaimingConfirming}
-        >
-          {isClaiming || isClaimingConfirming ? 'Claiming...' : 'Claim Bounty'}
-        </button>
-      );
-    }
-
-    // Case 2: Bounty is Claimed
-    if (status === 'Claimed') {
-      // If the current user is the creator, show the "Accept Claim" button
+      // If the current user is the creator
       if (creator === currentAccount) {
         return (
           <button
-            onClick={handleAcceptBounty}
+            onClick={handleAcceptClaim}
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm"
-            disabled={isAccepting || isAcceptingConfirming}
+            disabled={isAcceptingClaim || isAcceptingClaimConfirming}
           >
-            {isAccepting || isAcceptingConfirming ? 'Accepting...' : 'Accept Claim'}
+            {isAcceptingClaim || isAcceptingClaimConfirming ? 'Accepting Claim...' : 'Accept Claim'}
           </button>
         );
       }
-      // If the current user is not the creator, show the disabled "Claimed" button
-      return (
-        <button
-          className="bg-gray-400 text-white font-bold py-2 px-4 rounded text-sm cursor-not-allowed"
-          disabled
-        >
-          Claimed
-        </button>
-      );
+      // If the current user is a potential client (not creator, not admin)
+      if (!isAdmin) {
+        if (optimisticallyClaimed) {
+          return (
+            <button
+              className="bg-orange-400 text-white font-bold py-2 px-4 rounded text-sm cursor-not-allowed"
+              disabled
+            >
+              Claimed (Awaiting Acceptance)
+            </button>
+          );
+        }
+        return (
+          <button
+            onClick={handleClaimBounty}
+            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm"
+          >
+            Claim Bounty
+          </button>
+        );
+      }
+      // Admin sees nothing here if bounty is Open
+      return null;
     }
+
+    // The 'Claimed' status (on-chain) has been removed.
+    // Bounties go from 'Open' directly to 'Accepted' via the creator's acceptClaim transaction.
+    // Optimistic 'Claimed (Awaiting Acceptance)' is handled within the 'Open' status block for the client.
 
     // Case 3: Bounty is Accepted
     if (status === 'Accepted') {
-      // If the current user is the creator or an admin, they can't submit a solution
-      if (creator === currentAccount || isAdmin) {
-        return null;
+      // If the current user is the bounty acceptor (client who got accepted)
+      const cachedBounty = queryClient.getQueryData<Bounty>(['BonusEscrow', deployedContractAddress.contractAddress, 'bounties', BigInt(id)]);
+      if (currentAccount && cachedBounty && currentAccount === cachedBounty.acceptor) {
+        return (
+          <button
+            onClick={handleCompleteBounty}
+            className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-sm"
+            disabled={isCompleting || isCompletingConfirming}
+          >
+            {isCompleting || isCompletingConfirming ? 'Submitting...' : 'Submit Solution'}
+          </button>
+        );
       }
-      // Otherwise, show the "Submit Solution" button
-      return (
-        <button
-          onClick={handleCompleteBounty}
-          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-sm"
-          disabled={isCompleting || isCompletingConfirming}
-        >
-          {isCompleting || isCompletingConfirming ? 'Submitting...' : 'Submit Solution'}
-        </button>
-      );
+      // If the current user is the creator, or an admin, or not the acceptor, show no specific action button here
+      // (unless we want a "View Submission" button for creator later)
+      return null;
     }
 
     // Default: No button
@@ -183,7 +199,8 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward,
       <div className="flex justify-between items-center">
         <span className="text-lg font-bold text-indigo-600">{reward}</span>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColorClass}`}>
-          {status}
+          {/* Display optimistic status for client if applicable */}
+          {(status === 'Open' && optimisticallyClaimed && currentAccount !== creator && !isAdmin) ? 'Claimed (Pending)' : status}
         </span>
       </div>
       <a href={`/bounty/${id}`} className="mt-4 inline-block text-indigo-600 hover:text-indigo-800 font-medium">

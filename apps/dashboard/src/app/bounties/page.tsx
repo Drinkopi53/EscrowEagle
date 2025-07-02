@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Tambahkan useState
 import { useContractRead, useAccount, useBalance, useDisconnect } from 'wagmi';
-import { useQueryClient } from '@tanstack/react-query';
+// import { useQueryClient } from '@tanstack/react-query'; // Removed as it's not used
 import { abi as BonusEscrowABI } from '../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../../../python_workspace/deployed_contract_address.json';
 import BountyCard from '../../components/BountyCard';
@@ -18,6 +18,7 @@ interface Bounty {
   description: string;
   reward: bigint;
   status: number;
+  acceptor: `0x${string}`; // Added acceptor field
 }
 
 const statusMap: { [key: number]: string } = {
@@ -34,8 +35,9 @@ const BountiesPage: React.FC = () => {
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address });
   const { isAdmin } = useIsAdmin(); // Use the useIsAdmin hook
+  const [showTransactions, setShowTransactions] = useState(false); // State baru
 
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient(); // Removed as it's not used
 
   const { data: bounties, isLoading, isError, error } = useContractRead({
     address: deployedContractAddress.contractAddress as `0x${string}`,
@@ -104,8 +106,20 @@ const BountiesPage: React.FC = () => {
         )}
       </div>
 
-      <h2 className="text-2xl font-bold mb-4">Your Transaction History</h2>
-      <TransactionTable account={address} />
+      <div className="mt-8"> {/* Wrapper untuk bagian riwayat transaksi */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold">Your Transaction History</h2>
+          {!showTransactions && (
+            <button
+              onClick={() => setShowTransactions(true)}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm"
+            >
+              Load Transactions
+            </button>
+          )}
+        </div>
+        {showTransactions && <TransactionTable account={address} />}
+      </div>
     </div>
   );
 };
