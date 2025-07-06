@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import BountyCard from "@/components/BountyCard";
-import { useReadContract } from 'wagmi';
+import { useReadContract, useAccount } from 'wagmi';
 import { ethers } from 'ethers';
 import BonusEscrowJson from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 const BonusEscrowABI = BonusEscrowJson.abi;
@@ -28,6 +28,7 @@ const statusMap: { [key: number]: string } = {
 
 export default function ClientDashboard({ isAdminView }: { isAdminView: boolean }) {
   const [bounties, setBounties] = useState<Bounty[]>([]);
+  const { address } = useAccount();
 
   const { data: fetchedBounties, isLoading: isBountiesLoading, refetch } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
@@ -72,14 +73,17 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
       
       console.log("Client Dashboard: Formatted Bounties (after mapping):", formattedBounties);
 
-      // For client view, show all bounties
-      // For admin view in client dashboard, this shouldn't happen but show all anyway
-      const filtered = formattedBounties;
+      const filtered = isAdminView
+        ? formattedBounties
+        : formattedBounties.filter(bounty => 
+            bounty.status === 0 || // Show all Open bounties
+            (bounty.status === 1 && bounty.claimant.toLowerCase() === address?.toLowerCase()) // Show bounties Claimed by the current user
+          );
 
       console.log("Client Dashboard: Filtered Bounties (before setting state):", filtered);
       setBounties(filtered);
     }
-  }, [fetchedBounties, isAdminView, refetch]);
+  }, [fetchedBounties, isAdminView, refetch, address]);
 
   useEffect(() => {
     console.log("Bounties state:", bounties);
@@ -119,6 +123,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
               isAdminView={isAdminView}
               claimantAddress={bounty.claimant}
               solutionGithubUrl={bounty.solutionGithubUrl} // Pass solutionGithubUrl
+              onClaimSuccess={refetch} // Add this callback
             />
           ))}
         </div>

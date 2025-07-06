@@ -14,6 +14,7 @@ interface BountyCardProps {
   claimantAddress?: string;
   solutionGithubUrl?: string; // New prop for client-submitted solution URL
   onApproveBounty?: (bountyId: string, solutionGithubUrl: string) => void; // Callback for admin approval
+  onClaimSuccess?: () => void; // Callback for successful claim
   verificationStatus?: { id: string; status: 'idle' | 'verifying' | 'success' | 'failed'; message: string } | null; // Status of GitHub verification
 }
 
@@ -30,9 +31,9 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubUrl, reward, rewardAmount, status, isAdminView, claimantAddress, solutionGithubUrl, onApproveBounty, verificationStatus }) => {
+const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubUrl, reward, rewardAmount, status, isAdminView, claimantAddress, solutionGithubUrl, onApproveBounty, onClaimSuccess, verificationStatus }) => {
   const statusColorClass = getStatusColor(status);
-  const { claimBounty, isLoading: isClaiming, isSuccess: isClaimSuccess, isError: isClaimError, error: claimError } = useClaimBounty();
+  const { claimBounty, isLoading: isClaiming, isSuccess: isClaimSuccess, isError: isClaimError, error: claimError } = useClaimBounty(onClaimSuccess);
   const { approveBounty, isLoading: isAdminActionLoading, isSuccess: isAdminActionSuccess, isError: isAdminActionError, error: adminActionError, hash: adminActionHash } = useAdminActions();
   const { submitSolution, isLoading: isSubmittingSolution, isSuccess: isSubmitSuccess, isError: isSubmitError, error: submitError } = useAdminActions(); // Reusing useAdminActions for submitSolution
 

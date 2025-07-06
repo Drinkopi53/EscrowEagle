@@ -7,6 +7,7 @@ import BonusEscrowJson from '../../../../../../src/artifacts/contracts/BonusEscr
 import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
 import BountyCard from '@/components/BountyCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAdminActions } from '@/hooks/useAdminActions';
 
 const BonusEscrowABI = BonusEscrowJson.abi;
 
@@ -38,7 +39,8 @@ export default function AdminDashboard() {
   const [bounties, setBounties] = useState<Bounty[]>([]);
   const [filterStatus, setFilterStatus] = useState<number | null>(null); // null for all, 0 for Open, 1 for Claimed, 2 for Paid
   const [verificationStatus, setVerificationStatus] = useState<{ id: string; status: 'idle' | 'verifying' | 'success' | 'failed'; message: string } | null>(null);
-
+  
+  const { approveBounty } = useAdminActions();
   const { data: hash, isPending: isWriteLoading, isError: isWriteError, writeContract } = useWriteContract();
 
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
@@ -152,14 +154,8 @@ export default function AdminDashboard() {
       if (data.success) {
         setVerificationStatus({ id: bountyId, status: 'success', message: 'GitHub commit verified. Processing payment...' });
         // Call the smart contract function to approve and pay
-        // This part needs to be implemented using useAdminActions or similar
-        // For now, let's just log and simulate success
-        console.log(`GitHub commit for bounty ${bountyId} verified. Ready to approve payment.`);
-        // Assuming useAdminActions.approveBounty is available and works
-        // useAdminActions.approveBounty(bountyId); // This needs to be properly integrated
-        // For now, we'll just update the status locally for demonstration
-        // In a real app, you'd wait for the blockchain transaction to confirm
-        setVerificationStatus({ id: bountyId, status: 'success', message: 'Payment approved (simulated).' });
+        console.log(`GitHub commit for bounty ${bountyId} verified. Calling approveBounty...`);
+        approveBounty(bountyId);
       } else {
         setVerificationStatus({ id: bountyId, status: 'failed', message: `GitHub verification failed: ${data.message}` });
       }

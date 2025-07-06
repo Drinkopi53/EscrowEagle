@@ -7,6 +7,8 @@ import { useAccount } from 'wagmi';
 
 const BonusEscrowABI = BonusEscrowJson.abi;
 
+import { useEffect } from 'react';
+
 interface UseClaimBountyResult {
   claimBounty: (bountyId: string) => void;
   isLoading: boolean;
@@ -15,13 +17,20 @@ interface UseClaimBountyResult {
   error: Error | null;
 }
 
-export const useClaimBounty = (): UseClaimBountyResult => {
+export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResult => {
   const { address } = useAccount();
   const { data: hash, isPending, isError, error, writeContract } = useWriteContract();
 
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+
+  useEffect(() => {
+    if (isTxSuccess && onClaimSuccess) {
+      console.log("Claim transaction successful, calling onClaimSuccess callback.");
+      onClaimSuccess();
+    }
+  }, [isTxSuccess, onClaimSuccess]);
 
   const claimBounty = (bountyId: string) => {
     if (!address) {
@@ -32,7 +41,7 @@ export const useClaimBounty = (): UseClaimBountyResult => {
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
       functionName: 'claimBounty',
-      args: [bountyId],
+      args: [BigInt(bountyId)],
     });
   };
 
