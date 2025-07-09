@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link'; // Import Link from Next.js
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { ethers } from 'ethers';
 import BonusEscrowJson from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
@@ -308,24 +307,36 @@ export default function AdminDashboard() {
                     claimants={claimants}
                     onClaimSuccess={refetch}
                   />
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <Link href={`/bounty/${bounty.id}`} legacyBehavior>
-                      <a className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm transition-colors duration-150 ease-in-out w-full text-center">
-                        View Details
-                      </a>
-                    </Link>
-                  </div>
-                  {/* The claimants list and actions below are now part of the View Details page for admin */}
-                  {/* We can keep a summary or remove it if View Details is comprehensive enough */}
-                  {/* For now, let's comment it out to direct admin to the details page for claimant management */}
-                  {/*
                   {bounty.status === 0 && claimants.length > 0 && (
                     <div className="mt-4 border-t pt-4">
-                      <h4 className="font-semibold text-gray-800 mb-2">Claimants ({claimants.length}):</h4>
-                      // Simplified view or remove if details page is preferred
+                      <h4 className="font-semibold text-gray-800 mb-2">Claimants:</h4>
+                      <ul className="space-y-2">
+                        {claimants.map((claimant, index) => (
+                          <li key={index} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                            <span className="text-sm font-mono text-gray-600 truncate" title={claimant}>{claimant}</span>
+                            <div className="flex space-x-2">
+                              {/* Approve button is temporarily hidden
+                              <button
+                                onClick={() => handleApproveBounty(bounty.id, claimant)}
+                                disabled={isAdminActionLoading}
+                                className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
+                              >
+                                {isAdminActionLoading ? '...' : 'Approve'}
+                              </button>
+                              */}
+                              <button
+                                onClick={() => handleCancelClaimByAdmin(bounty.id, claimant)}
+                                disabled={isAdminActionLoading}
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
+                              >
+                                {isAdminActionLoading ? '...' : 'Cancel'}
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  */}
                 </div>
               );
             })}
