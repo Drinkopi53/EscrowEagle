@@ -38,8 +38,8 @@ export default function AdminDashboard() {
   const [bounties, setBounties] = useState<Bounty[]>([]);
   const [claimantsMap, setClaimantsMap] = useState<Record<string, string[]>>({});
   const [filterStatus, setFilterStatus] = useState<number | null>(0); // Default to Open
-  
-  const { approveBounty, cancelClaimByAdmin, isLoading: isApproving, isSuccess: isApproveSuccess } = useAdminActions();
+
+  const { approveBounty, cancelClaimByAdmin, isLoading: isAdminActionLoading, isSuccess: isAdminActionSuccess } = useAdminActions();
   const { data: hash, isPending: isWriteLoading, isError: isWriteError, writeContract } = useWriteContract();
 
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
   }, [fetchedBounties, filterStatus, address, refetch]);
 
   useEffect(() => {
-    if (isTxSuccess || isApproveSuccess) {
+    if (isTxSuccess || isAdminActionSuccess) {
       const timer = setTimeout(() => {
         refetch();
       }, 2000); // 2 second delay
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
 
       return () => clearTimeout(timer);
     }
-  }, [isTxSuccess, isApproveSuccess, refetch]);
+  }, [isTxSuccess, isAdminActionSuccess, refetch]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -318,18 +318,18 @@ export default function AdminDashboard() {
                               {/* Approve button is temporarily hidden
                               <button
                                 onClick={() => handleApproveBounty(bounty.id, claimant)}
-                                disabled={isApproving}
+                                disabled={isAdminActionLoading}
                                 className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
                               >
-                                {isApproving ? '...' : 'Approve'}
+                                {isAdminActionLoading ? '...' : 'Approve'}
                               </button>
                               */}
                               <button
                                 onClick={() => handleCancelClaimByAdmin(bounty.id, claimant)}
-                                disabled={isApproving}
+                                disabled={isAdminActionLoading}
                                 className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
                               >
-                                {isApproving ? '...' : 'Cancel'}
+                                {isAdminActionLoading ? '...' : 'Cancel'}
                               </button>
                             </div>
                           </li>
