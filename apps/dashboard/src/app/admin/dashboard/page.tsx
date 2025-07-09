@@ -7,25 +7,25 @@ import BonusEscrowJson from '../../../../../../src/artifacts/contracts/BonusEscr
 import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
 import BountyCard from '@/components/BountyCard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAdminActions } from '@/hooks/useAdminActions';
+import { readContract } from 'wagmi/actions';
+import { config as wagmiConfig } from '@/app/wagmi';
 
 const BonusEscrowABI = BonusEscrowJson.abi;
 
 interface Bounty {
   id: string;
-  creator: string; // Added creator to Bounty interface
+  creator: string;
   title: string;
-  description: string; // Added description to Bounty interface
+  description: string;
   githubUrl: string;
   reward: bigint;
   status: number;
-  claimant: string;
-  solutionGithubUrl?: string; // New field for client-submitted solution URL
 }
 
 const statusMap: { [key: number]: string } = {
   0: 'Open',
-  1: 'Claimed',
-  2: 'Paid',
+  1: 'Paid',
 };
 
 export default function AdminDashboard() {
@@ -33,12 +33,13 @@ export default function AdminDashboard() {
   const { isAdmin, isAdminLoading } = useIsAdmin();
   const [githubUrl, setGithubUrl] = useState('');
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState(''); // New state for description
-  const [amount, setAmount] = useState('1'); // Default to 1 ETH
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('1');
   const [bounties, setBounties] = useState<Bounty[]>([]);
-  const [filterStatus, setFilterStatus] = useState<number | null>(null); // null for all, 0 for Open, 1 for Claimed, 2 for Paid
-  const [verificationStatus, setVerificationStatus] = useState<{ id: string; status: 'idle' | 'verifying' | 'success' | 'failed'; message: string } | null>(null);
+  const [claimantsMap, setClaimantsMap] = useState<Record<string, string[]>>({});
+  const [filterStatus, setFilterStatus] = useState<number | null>(0); // Default to Open
 
+  const { approveBounty, cancelClaimByAdmin, isLoading: isAdminActionLoading, isSuccess: isAdminActionSuccess } = useAdminActions();
   const { data: hash, isPending: isWriteLoading, isError: isWriteError, writeContract } = useWriteContract();
 
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
@@ -54,17 +55,26 @@ export default function AdminDashboard() {
     },
   });
 
+  const fetchClaimants = async (bountyId: string) => {
+    try {
+      const data = await readContract(wagmiConfig, {
+        address: deployedContractAddress.contractAddress as `0x${string}`,
+        abi: BonusEscrowABI,
+        functionName: 'getClaimants',
+        args: [BigInt(bountyId)],
+      });
+      if (Array.isArray(data)) {
+        setClaimantsMap(prev => ({ ...prev, [bountyId]: data as string[] }));
+      }
+    } catch (error) {
+      console.error(`Failed to fetch claimants for bounty ${bountyId}:`, error);
+    }
+  };
+
   useEffect(() => {
-    console.log("=== ADMIN DASHBOARD DEBUG ===");
-    console.log("Admin Dashboard: Raw fetchedBounties:", fetchedBounties);
-    console.log("Admin Dashboard: fetchedBounties type:", typeof fetchedBounties);
-    console.log("Admin Dashboard: Is array:", Array.isArray(fetchedBounties));
-    console.log("Admin Dashboard: Current address:", address);
-    console.log("Admin Dashboard: filterStatus:", filterStatus);
-    
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
       const formattedBounties: Bounty[] = fetchedBounties
-        .filter(bounty => bounty && bounty.id !== undefined) // Ensure bounty and its ID are defined
+        .filter(bounty => bounty && bounty.id !== undefined)
         .map((bounty: any) => ({
           id: bounty.id.toString(),
           creator: bounty.creator,
@@ -73,39 +83,39 @@ export default function AdminDashboard() {
           githubUrl: bounty.githubUrl,
           reward: bounty.reward,
           status: Number(bounty.status),
-          claimant: bounty.claimant,
-          solutionGithubUrl: bounty.solutionGithubUrl || '',
-      }));
-      console.log("Admin Dashboard: Formatted Bounties (after mapping):", formattedBounties);
+        }));
       
-      // Filter bounties by the connected admin's address
-      const adminBounties = formattedBounties.filter(bounty => bounty.creator.toLowerCase() === address?.toLowerCase());
-
       const filteredBounties = filterStatus === null
-        ? adminBounties
-        : adminBounties.filter(bounty => bounty.status === filterStatus);
+        ? formattedBounties
+        : formattedBounties.filter(bounty => bounty.status === filterStatus);
       
-      console.log("Admin Dashboard: Filtered Bounties (before setting state):", filteredBounties);
       setBounties(filteredBounties);
+
+      // Fetch claimants for each open bounty
+      filteredBounties.forEach(bounty => {
+        if (bounty.status === 0) { // Only fetch for Open bounties
+          fetchClaimants(bounty.id);
+        }
+      });
     }
   }, [fetchedBounties, filterStatus, address, refetch]);
 
   useEffect(() => {
-    if (isTxSuccess) {
-      refetch();
-      // Introduce a delay before refetching to allow blockchain state to propagate
+    if (isTxSuccess || isAdminActionSuccess) {
       const timer = setTimeout(() => {
         refetch();
-      }, 5000); // Increased to 5 second delay to allow blockchain state to propagate
+      }, 2000); // 2 second delay
 
-      setGithubUrl('');
-      setTitle('');
-      setDescription(''); // Clear description after successful creation
-      setAmount('1');
+      if (isTxSuccess) {
+        setGithubUrl('');
+        setTitle('');
+        setDescription('');
+        setAmount('1');
+      }
 
-      return () => clearTimeout(timer); // Cleanup the timer if the component unmounts or isTxSuccess changes
+      return () => clearTimeout(timer);
     }
-  }, [isTxSuccess, refetch]);
+  }, [isTxSuccess, isAdminActionSuccess, refetch]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -136,37 +146,14 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleApproveBounty = async (bountyId: string, solutionGithubUrl: string) => {
-    setVerificationStatus({ id: bountyId, status: 'verifying', message: 'Verifying GitHub commit...' });
-    try {
-      const response = await fetch('/api/github-verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ solutionGithubUrl }),
-      });
+  const handleApproveBounty = (bountyId: string, winnerAddress: string) => {
+    console.log(`Approving bounty ${bountyId} for winner ${winnerAddress}`);
+    approveBounty(bountyId, winnerAddress);
+  };
 
-      const data = await response.json();
-
-      if (data.success) {
-        setVerificationStatus({ id: bountyId, status: 'success', message: 'GitHub commit verified. Processing payment...' });
-        // Call the smart contract function to approve and pay
-        // This part needs to be implemented using useAdminActions or similar
-        // For now, let's just log and simulate success
-        console.log(`GitHub commit for bounty ${bountyId} verified. Ready to approve payment.`);
-        // Assuming useAdminActions.approveBounty is available and works
-        // useAdminActions.approveBounty(bountyId); // This needs to be properly integrated
-        // For now, we'll just update the status locally for demonstration
-        // In a real app, you'd wait for the blockchain transaction to confirm
-        setVerificationStatus({ id: bountyId, status: 'success', message: 'Payment approved (simulated).' });
-      } else {
-        setVerificationStatus({ id: bountyId, status: 'failed', message: `GitHub verification failed: ${data.message}` });
-      }
-    } catch (error: any) {
-      console.error('Error during GitHub verification:', error);
-      setVerificationStatus({ id: bountyId, status: 'failed', message: `Verification error: ${error.message}` });
-    }
+  const handleCancelClaimByAdmin = (bountyId: string, claimantAddress: string) => {
+    console.log(`Admin cancelling claim for ${claimantAddress} on bounty ${bountyId}`);
+    cancelClaimByAdmin(bountyId, claimantAddress);
   };
 
   if (isAdminLoading) {
@@ -289,12 +276,6 @@ export default function AdminDashboard() {
               onClick={() => setFilterStatus(1)}
               className={`py-2 px-4 rounded ${filterStatus === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
             >
-              Claimed
-            </button>
-            <button
-              onClick={() => setFilterStatus(2)}
-              className={`py-2 px-4 rounded ${filterStatus === 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
-            >
               Paid
             </button>
             <button
@@ -310,24 +291,55 @@ export default function AdminDashboard() {
         ) : bounties.length === 0 ? (
           <div className="text-center py-8 text-gray-600">No bounties available for this status.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bounties.map((bounty) => (
-              <BountyCard
-                key={bounty.id}
-                id={bounty.id}
-                title={bounty.title}
-                description={bounty.description} 
-                githubUrl={bounty.githubUrl}
-                reward={`${ethers.formatEther(bounty.reward)} ETH`}
-                rewardAmount={bounty.reward}
-                status={statusMap[bounty.status]}
-                isAdminView={true}
-                claimantAddress={bounty.claimant}
-                solutionGithubUrl={bounty.solutionGithubUrl}
-                onApproveBounty={handleApproveBounty}
-                verificationStatus={verificationStatus?.id === bounty.id ? verificationStatus : null}
-              />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bounties.map((bounty) => {
+              const claimants = claimantsMap[bounty.id] || [];
+              return (
+                <div key={bounty.id} className="bg-gray-50 p-4 rounded-lg shadow">
+                  <BountyCard
+                    id={bounty.id}
+                    title={bounty.title}
+                    description={bounty.description}
+                    githubUrl={bounty.githubUrl}
+                    reward={`${ethers.formatEther(bounty.reward)} ETH`}
+                    status={statusMap[bounty.status]}
+                    isAdminView={true}
+                    claimants={claimants}
+                    onClaimSuccess={refetch}
+                  />
+                  {bounty.status === 0 && claimants.length > 0 && (
+                    <div className="mt-4 border-t pt-4">
+                      <h4 className="font-semibold text-gray-800 mb-2">Claimants:</h4>
+                      <ul className="space-y-2">
+                        {claimants.map((claimant, index) => (
+                          <li key={index} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                            <span className="text-sm font-mono text-gray-600 truncate" title={claimant}>{claimant}</span>
+                            <div className="flex space-x-2">
+                              {/* Approve button is temporarily hidden
+                              <button
+                                onClick={() => handleApproveBounty(bounty.id, claimant)}
+                                disabled={isAdminActionLoading}
+                                className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
+                              >
+                                {isAdminActionLoading ? '...' : 'Approve'}
+                              </button>
+                              */}
+                              <button
+                                onClick={() => handleCancelClaimByAdmin(bounty.id, claimant)}
+                                disabled={isAdminActionLoading}
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
+                              >
+                                {isAdminActionLoading ? '...' : 'Cancel'}
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
