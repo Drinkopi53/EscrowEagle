@@ -5,8 +5,6 @@ import { ConnectWallet } from "@/components/ConnectWallet";
 import AdminDashboard from './admin/dashboard/page';
 import ClientDashboard from '@/components/ClientDashboard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import DebugInfo from '@/components/DebugInfo';
-import FrontendDebug from '@/components/FrontendDebug';
 import { useAccount } from 'wagmi';
 
 export default function Home() {
@@ -35,8 +33,6 @@ export default function Home() {
           <ConnectWallet />
         </div>
       </header>
-      <DebugInfo />
-      <FrontendDebug />
       {isAdminView && isAdmin ? <AdminDashboard /> : <ClientDashboard isAdminView={isAdminView} />}
     </div>
   );
