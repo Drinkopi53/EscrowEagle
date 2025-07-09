@@ -6,7 +6,6 @@ import AdminDashboard from './admin/dashboard/page';
 import ClientDashboard from '@/components/ClientDashboard';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import DebugInfo from '@/components/DebugInfo';
-import SetupInstructions from '@/components/SetupInstructions';
 import FrontendDebug from '@/components/FrontendDebug';
 import { useAccount } from 'wagmi';
 
@@ -38,7 +37,6 @@ export default function Home() {
       </header>
       <DebugInfo />
       <FrontendDebug />
-      {(!isConnected || !isCorrectNetwork || !isCorrectAccount) && <SetupInstructions />}
       {isAdminView && isAdmin ? <AdminDashboard /> : <ClientDashboard isAdminView={isAdminView} />}
     </div>
   );
