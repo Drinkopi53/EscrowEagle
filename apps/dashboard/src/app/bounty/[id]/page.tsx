@@ -1,177 +1,154 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useReadContract, useWriteContract, useAccount } from 'wagmi';
-import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useReadContract } from 'wagmi';
+import { ethers } from 'ethers';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAdminActions } from '@/hooks/useAdminActions';
+import BonusEscrowJson from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
+import { readContract } from 'wagmi/actions';
+import { config as wagmiConfig } from '@/app/wagmi';
 
-interface BountyEvent {
-  bountyId: string;
-  eventName: string;
-  userName: string;
-  prLink: string;
-}
+const BonusEscrowABI = BonusEscrowJson.abi;
 
 const statusMap: { [key: number]: string } = {
   0: 'Open',
-  1: 'Accepted',
-  2: 'Completed',
-  3: 'Paid',
+  1: 'Paid',
 };
 
-const BountyDetailPage: React.FC = () => {
+export default function BountyDetail() {
+  const router = useRouter();
   const params = useParams();
   const bountyId = params.id as string;
-  const [winnerInfo, setWinnerInfo] = useState<{ userName: string; prLink: string } | null>(null);
-  const { address } = useAccount();
+  const isValidBountyId = !!(bountyId && /^\d+$/.test(bountyId));
 
-  const { data: bountyData, isLoading: isBountyLoading } = useReadContract({
+  const { isAdmin, isAdminLoading } = useIsAdmin();
+  const [claimants, setClaimants] = useState<string[]>([]);
+
+  const { data: allBounties, isLoading: isBountyLoading, refetch: refetchBounty } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
-    functionName: 'bounties',
-    args: [BigInt(bountyId)],
+    functionName: 'getAllBounties',
+    query: {
+      enabled: isValidBountyId,
+    },
   });
 
-  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useWriteContract();
-  const { writeContract: completeBountyWrite, isPending: isCompleting } = useWriteContract();
-  const { writeContract: payBountyWrite, isPending: isPaying } = useWriteContract();
+  const bounty = useMemo(() => {
+    if (!allBounties || !Array.isArray(allBounties)) return null;
+    const foundBounty = allBounties.find((b: any) => b.id.toString() === bountyId);
+    if (!foundBounty) return null;
 
-  const handleAcceptBounty = () => {
-    acceptBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'acceptBounty',
-      args: [BigInt(bountyId)],
-    });
-  };
+    return {
+      id: foundBounty.id.toString(),
+      creator: foundBounty.creator,
+      title: foundBounty.title,
+      description: foundBounty.description,
+      githubUrl: foundBounty.githubUrl,
+      reward: foundBounty.reward,
+      status: Number(foundBounty.status),
+    };
+  }, [allBounties, bountyId]);
 
-  const handleCompleteBounty = () => {
-    completeBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'completeBounty',
-      args: [BigInt(bountyId)],
-    });
-  };
+  const refetchClaimants = useCallback(async () => {
+    if (!isValidBountyId) return;
+    try {
+      const data = await readContract(wagmiConfig, {
+        address: deployedContractAddress.contractAddress as `0x${string}`,
+        abi: BonusEscrowABI,
+        functionName: 'getClaimants',
+        args: [BigInt(bountyId)],
+      });
+      if (Array.isArray(data)) {
+        setClaimants(data as string[]);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch claimants for bounty ${bountyId}:`, error);
+    }
+  }, [bountyId, isValidBountyId]);
 
-  const handlePayBounty = () => {
-    // In a real app, _winner would be determined by the oracle or user input
-    // For this demo, we'll use a dummy winner address or the connected account
-    payBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'payBounty',
-      args: [BigInt(bountyId), address],
-    });
-  };
+  const onAdminActionSuccess = useCallback(() => {
+    refetchBounty();
+    refetchClaimants();
+  }, [refetchBounty, refetchClaimants]);
+
+  const { approveBounty, cancelClaimByAdmin, isLoading: isActionLoading } = useAdminActions(onAdminActionSuccess);
 
   useEffect(() => {
-    const fetchWinnerInfo = async () => {
-      if (bountyData && statusMap[Number((bountyData as any).status)] === 'Accepted') {
-        try {
-          const response = await fetch('/dummy-events.json');
-          const events: BountyEvent[] = await response.json();
-          const prMergedEvent = events.find(
-            (event) => event.eventName === 'PR_MERGED' && event.bountyId === bountyId
-          );
-          if (prMergedEvent) {
-            setWinnerInfo({
-              userName: prMergedEvent.userName,
-              prLink: prMergedEvent.prLink,
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching dummy events:', error);
-        }
-      }
-    };
+    if (isValidBountyId) {
+      refetchClaimants();
+    }
+  }, [isValidBountyId, refetchClaimants]);
 
-    fetchWinnerInfo();
-  }, [bountyData, bountyId]);
-
-  if (isBountyLoading) {
+  if (isBountyLoading || isAdminLoading) {
     return <div className="text-center py-8">Loading bounty details...</div>;
   }
 
-  const currentBounty = bountyData ? {
-    id: (bountyData as any).id.toString(),
-    creator: (bountyData as any).creator,
-    title: (bountyData as any).title,
-    description: (bountyData as any).description,
-    githubUrl: (bountyData as any).githubUrl,
-    reward: (bountyData as any).reward,
-    status: Number((bountyData as any).status),
-    claimant: (bountyData as any).claimant,
-    solutionGithubUrl: (bountyData as any).solutionGithubUrl,
-  } : null;
-
-  if (!currentBounty) {
-    return <div className="text-center py-8">Bounty not found.</div>;
+  if (!isValidBountyId) {
+    return <div className="text-center py-8 text-red-500 font-bold">Invalid Bounty ID.</div>;
+  }
+  
+  if (!bounty) {
+    return <div className="text-center py-8 text-red-500 font-bold">Bounty not found.</div>;
   }
 
+  const claimantsSection = isAdmin && bounty.status === 0 ? (
+    <div className="mt-8 bg-white shadow-lg rounded-lg p-6">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Claimants ({claimants.length})</h2>
+      {claimants.length > 0 ? (
+        <ul className="space-y-4">
+          {claimants.map((claimant, index) => (
+            <li key={index} className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 p-4 rounded-lg shadow-sm">
+              <span className="text-md font-mono text-gray-700 truncate mb-2 md:mb-0" title={claimant}>{claimant}</span>
+              <div className="flex space-x-2 self-end md:self-auto">
+                <button
+                  onClick={() => approveBounty(bounty.id, claimant)}
+                  disabled={isActionLoading}
+                  className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-sm focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+                >
+                  {isActionLoading ? 'Approving...' : 'Approve'}
+                </button>
+                <button
+                  onClick={() => cancelClaimByAdmin(bounty.id, claimant)}
+                  disabled={isActionLoading}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+                >
+                  {isActionLoading ? 'Cancelling...' : 'Cancel'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">No one has claimed this bounty yet.</p>
+      )}
+    </div>
+  ) : null;
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Bounty Details for ID: {currentBounty.id}</h1>
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{currentBounty.title}</h2>
-        <p className="text-gray-700 mb-4">{currentBounty.description}</p>
-        <p className="text-gray-700 mb-2">Reward: {`${Number(currentBounty.reward) / 1e18} Etherium`}</p>
-        <p className="text-gray-700 mb-2">Status: {statusMap[currentBounty.status]}</p>
-        <p className="text-gray-700 mb-2">Creator: {currentBounty.creator}</p>
-
-        {winnerInfo && (
-          <div className="mt-4 p-4 bg-green-50 rounded-md">
-            <h2 className="text-xl font-semibold text-green-800 mb-2">Winner Information:</h2>
-            <p className="text-gray-700">
-              User Name: <span className="font-medium">{winnerInfo.userName}</span>
-            </p>
-            <p className="text-gray-700">
-              PR Link:{' '}
-              <a
-                href={winnerInfo.prLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                {winnerInfo.prLink}
-              </a>
-            </p>
-          </div>
-        )}
-
-        <div className="mt-6 flex space-x-4">
-          {statusMap[currentBounty.status] === 'Open' && currentBounty.creator === address && (
-            <button
-              onClick={handleAcceptBounty}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isAccepting}
-            >
-              {isAccepting ? 'Accepting...' : 'Accept Bounty'}
-            </button>
-          )}
-          {statusMap[currentBounty.status] === 'Accepted' && (
-            <button
-              onClick={handleCompleteBounty}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isCompleting}
-            >
-              {isCompleting ? 'Completing...' : 'Complete Bounty'}
-            </button>
-          )}
-          {statusMap[currentBounty.status] === 'Completed' && currentBounty.creator === address && (
-            <button
-              onClick={handlePayBounty}
-              className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isPaying}
-            >
-              {isPaying ? 'Paying...' : 'Pay Bounty'}
-            </button>
-          )}
+    <div className="container mx-auto p-4 md:p-8">
+      <button onClick={() => router.back()} className="mb-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+        &larr; Back to Dashboard
+      </button>
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <div className="flex justify-between items-start mb-4">
+          <h1 className="text-3xl font-bold text-gray-800">{bounty.title}</h1>
+          <span className={`text-white text-sm font-semibold px-3 py-1 rounded-full ${bounty.status === 0 ? 'bg-green-500' : 'bg-gray-500'}`}>
+            {statusMap[bounty.status]}
+          </span>
+        </div>
+        <p className="text-gray-600 mb-4">{bounty.description}</p>
+        <a href={bounty.githubUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+          {bounty.githubUrl}
+        </a>
+        <div className="mt-4 text-2xl font-bold text-green-600">
+          {ethers.formatEther(bounty.reward)} ETH
         </div>
       </div>
+      {claimantsSection}
     </div>
   );
-};
+}
 
-export default BountyDetailPage;

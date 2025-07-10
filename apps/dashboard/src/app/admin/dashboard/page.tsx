@@ -304,39 +304,9 @@ export default function AdminDashboard() {
                     reward={`${ethers.formatEther(bounty.reward)} ETH`}
                     status={statusMap[bounty.status]}
                     isAdminView={true}
-                    claimants={claimants}
+                    claimants={claimantsMap[bounty.id] || []}
                     onClaimSuccess={refetch}
                   />
-                  {bounty.status === 0 && claimants.length > 0 && (
-                    <div className="mt-4 border-t pt-4">
-                      <h4 className="font-semibold text-gray-800 mb-2">Claimants:</h4>
-                      <ul className="space-y-2">
-                        {claimants.map((claimant, index) => (
-                          <li key={index} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
-                            <span className="text-sm font-mono text-gray-600 truncate" title={claimant}>{claimant}</span>
-                            <div className="flex space-x-2">
-                              {/* Approve button is temporarily hidden
-                              <button
-                                onClick={() => handleApproveBounty(bounty.id, claimant)}
-                                disabled={isApproving}
-                                className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
-                              >
-                                {isApproving ? '...' : 'Approve'}
-                              </button>
-                              */}
-                              <button
-                                onClick={() => handleCancelClaimByAdmin(bounty.id, claimant)}
-                                disabled={isApproving}
-                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs focus:outline-none focus:shadow-outline"
-                              >
-                                {isApproving ? '...' : 'Cancel'}
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </div>
               );
             })}
