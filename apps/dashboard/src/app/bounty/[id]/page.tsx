@@ -41,6 +41,7 @@ const BountyDetailPage: React.FC = () => {
   const router = useRouter();
   const bountyId = params.id as string;
   const [winnerInfo, setWinnerInfo] = useState<{ userName: string; prLink: string } | null>(null);
+  const [committers, setCommitters] = useState<BountyEvent[]>([]);
   const { address } = useAccount();
   const { isAdmin } = useIsAdmin();
 
@@ -102,6 +103,7 @@ const BountyDetailPage: React.FC = () => {
   };
 
   useEffect(() => {
+    // Fetch winner info from the dummy file (as backend doesn't support it yet)
     const fetchWinnerInfo = async () => {
       if (bountyData && statusMap[Number((bountyData as any).status)] === 'Accepted') {
         try {
@@ -117,12 +119,25 @@ const BountyDetailPage: React.FC = () => {
             });
           }
         } catch (error) {
-          console.error('Error fetching dummy events:', error);
+          console.error('Error fetching dummy winner events:', error);
         }
       }
     };
 
+    // Fetch committers from our new backend API
+    const fetchCommitters = async () => {
+        if (!bountyId) return;
+        try {
+            const response = await fetch(`http://localhost:3001/api/bounties/${bountyId}/committers`);
+            const data: BountyEvent[] = await response.json();
+            setCommitters(data);
+        } catch (error) {
+            console.error('Error fetching committers:', error);
+        }
+    };
+
     fetchWinnerInfo();
+    fetchCommitters();
   }, [bountyData, bountyId]);
 
   if (isBountyLoading || isLoadingClaimants) {
@@ -322,6 +337,44 @@ const BountyDetailPage: React.FC = () => {
                             </button>
                           </td>
                         )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Committers Table */}
+          {committers && committers.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-cozy">
+              <h3 className="text-xl font-bold text-cozy-main mb-4">
+                Commiters ({committers.length})
+              </h3>
+              <div className="overflow-x-auto bg-cozy-main bg-opacity-5 rounded-lg border border-cozy">
+                <table className="min-w-full text-left text-sm text-cozy-main">
+                  <thead className="border-b border-cozy font-medium bg-cozy-main bg-opacity-5">
+                    <tr>
+                      <th scope="col" className="px-6 py-4 w-16">#</th>
+                      <th scope="col" className="px-6 py-4">User Name</th>
+                      <th scope="col" className="px-6 py-4">PR Link</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {committers.map((committer, index) => (
+                      <tr key={index} className="border-b border-cozy transition duration-300 ease-in-out hover:bg-cozy-main hover:bg-opacity-10">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium">{index + 1}</td>
+                        <td className="whitespace-nowrap px-6 py-4">{committer.userName}</td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <a
+                            href={committer.prLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link-cozy underline"
+                          >
+                            {committer.prLink}
+                          </a>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
