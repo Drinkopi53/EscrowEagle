@@ -32,18 +32,17 @@ contract BonusEscrow {
         uint256 id;
         address creator;
         string title;
-        string description; // New field for bounty description
+        string description;
         string githubUrl;
         uint256 reward;
         Status status;
-        address claimant;
-        string solutionGithubUrl; // New field for client-submitted solution URL
     }
 
-    enum Status { Open, Claimed, Paid }
+    enum Status { Open, Paid }
 
     uint256 public nextBountyId;
     mapping(uint256 => Bounty) public bounties;
+    mapping(uint256 => address[]) public claimants;
     uint256[] bountyIds;
 
     event BountyCreated(
@@ -54,7 +53,7 @@ contract BonusEscrow {
         uint256 reward
     );
     event BountyClaimed(uint256 indexed id, address indexed claimant);
-    event BountyApproved(uint256 indexed id, address indexed claimant, uint256 reward);
+    event BountyApproved(uint256 indexed id, address indexed winner, uint256 reward);
 
     function createBounty(
         string memory _title,
@@ -68,24 +67,14 @@ contract BonusEscrow {
             id: id,
             creator: msg.sender,
             title: _title,
-            description: _description, // Store the description
+            description: _description,
             githubUrl: _githubUrl,
             reward: msg.value,
-            status: Status.Open,
-            claimant: address(0),
-            solutionGithubUrl: "" // Initialize with empty string
+            status: Status.Open
         });
         bountyIds.push(id);
 
         emit BountyCreated(id, msg.sender, _title, _githubUrl, msg.value);
-    }
-
-    function submitSolution(uint256 _bountyId, string memory _solutionGithubUrl) public {
-        require(bounties[_bountyId].status == Status.Claimed, "Bounty has not been claimed or is already paid.");
-        require(bounties[_bountyId].claimant == msg.sender, "Only the claimant can submit a solution.");
-        
-        bounties[_bountyId].solutionGithubUrl = _solutionGithubUrl;
-        // Optionally emit an event for solution submission
     }
 
     function getBountyStatus(uint256 _bountyId) public view returns (Status) {
@@ -103,26 +92,70 @@ contract BonusEscrow {
 
     function claimBounty(uint256 _bountyId) public {
         require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claims.");
+
+        // Prevent duplicate claims from the same address
+        for (uint i = 0; i < claimants[_bountyId].length; i++) {
+            require(claimants[_bountyId][i] != msg.sender, "You have already claimed this bounty.");
+        }
         
-        bounties[_bountyId].status = Status.Claimed;
-        bounties[_bountyId].claimant = msg.sender;
+        claimants[_bountyId].push(msg.sender);
         
         emit BountyClaimed(_bountyId, msg.sender);
     }
 
-    function approveBounty(uint256 _bountyId) public onlyOwner {
-        require(bounties[_bountyId].status == Status.Claimed, "Bounty has not been claimed.");
+    function getClaimants(uint256 _bountyId) public view returns (address[] memory) {
+        return claimants[_bountyId];
+    }
+
+    function cancelClaim(uint256 _bountyId) public {
+        address[] storage bountyClaimants = claimants[_bountyId];
+        bool found = false;
+        for (uint i = 0; i < bountyClaimants.length; i++) {
+            if (bountyClaimants[i] == msg.sender) {
+                // Remove the claimant by shifting the last element to the current position
+                bountyClaimants[i] = bountyClaimants[bountyClaimants.length - 1];
+                bountyClaimants.pop();
+                found = true;
+                break;
+            }
+        }
+        require(found, "You have not claimed this bounty.");
+    }
+
+    function cancelClaimByAdmin(uint256 _bountyId, address _claimantAddress) public onlyOwner {
+        address[] storage bountyClaimants = claimants[_bountyId];
+        bool found = false;
+        for (uint i = 0; i < bountyClaimants.length; i++) {
+            if (bountyClaimants[i] == _claimantAddress) {
+                bountyClaimants[i] = bountyClaimants[bountyClaimants.length - 1];
+                bountyClaimants.pop();
+                found = true;
+                break;
+            }
+        }
+        require(found, "Claimant not found.");
+    }
+
+    function approveBounty(uint256 _bountyId, address _winner) public onlyOwner {
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not in a valid state to be approved.");
         
         Bounty storage bounty = bounties[_bountyId];
-        address claimant = bounty.claimant;
         uint256 reward = bounty.reward;
 
-        require(claimant != address(0), "No one has claimed this bounty.");
+        // Verify the winner is in the claimants list
+        bool winnerFound = false;
+        for (uint i = 0; i < claimants[_bountyId].length; i++) {
+            if (claimants[_bountyId][i] == _winner) {
+                winnerFound = true;
+                break;
+            }
+        }
+        require(winnerFound, "Winner not found in claimants list.");
         
         bounty.status = Status.Paid;
         
-        payable(claimant).transfer(reward);
+        payable(_winner).transfer(reward);
         
-        emit BountyApproved(_bountyId, claimant, reward);
+        emit BountyApproved(_bountyId, _winner, reward);
     }
 }

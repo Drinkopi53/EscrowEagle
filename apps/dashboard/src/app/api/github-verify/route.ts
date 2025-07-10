@@ -8,13 +8,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const urlParts = solutionGithubUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/commit\/([a-f0-9]+)/i);
+    // This regex now accepts both commit and pull request URLs
+    const urlParts = solutionGithubUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/(?:pull|commit)\/([a-zA-Z0-9]+)/i);
 
     if (!urlParts || urlParts.length < 4) {
-      return NextResponse.json({ success: false, message: 'Invalid GitHub commit URL format' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Invalid GitHub URL format. Please provide a direct link to a commit or pull request.' }, { status: 400 });
     }
 
-    const [, owner, repo, commitSha] = urlParts;
+    const [, owner, repo, id] = urlParts;
+    const isPullRequest = solutionGithubUrl.includes('/pull/');
+
+    // For this basic verification, we'll just check if the commit/PR exists.
+    // A more robust solution would use different API endpoints for commits vs. PRs.
+    const commitSha = isPullRequest ? '' : id; // This part is simplified for now
+    const githubApiUrl = isPullRequest 
+      ? `https://api.github.com/repos/${owner}/${repo}/pulls/${id}`
+      : `https://api.github.com/repos/${owner}/${repo}/commits/${id}`;
 
     const githubPat = process.env.GITHUB_PAT;
 
@@ -22,8 +31,6 @@ export async function POST(request: Request) {
       console.error('GITHUB_PAT environment variable is not set.');
       return NextResponse.json({ success: false, message: 'Server configuration error: GitHub PAT missing.' }, { status: 500 });
     }
-
-    const githubApiUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${commitSha}`;
 
     const response = await fetch(githubApiUrl, {
       headers: {
@@ -34,12 +41,8 @@ export async function POST(request: Request) {
 
     if (response.ok) {
       const data = await response.json();
-      // Basic check: if data contains a SHA, assume commit exists
-      if (data.sha === commitSha) {
-        return NextResponse.json({ success: true, message: 'GitHub commit verified successfully.' });
-      } else {
-        return NextResponse.json({ success: false, message: 'GitHub commit not found or invalid.' }, { status: 404 });
-      }
+      // Basic check: if the request was successful (response.ok), assume it's valid.
+      return NextResponse.json({ success: true, message: 'GitHub URL verified successfully.' });
     } else {
       const errorData = await response.json();
       console.error(`GitHub API error: ${response.status} - ${errorData.message}`);
