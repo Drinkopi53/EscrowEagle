@@ -1,16 +1,16 @@
 "use client";
 
-"use client";
-
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import BonusEscrowJson from '../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../contracts/deployed_contract_address.json';
+import { useEffect } from 'react';
 
 const BonusEscrowABI = BonusEscrowJson.abi;
 
 interface UseAdminActionsResult {
-  approveBounty: (bountyId: string) => void;
-  submitSolution: (bountyId: string, solutionGithubUrl: string) => void; // Added submitSolution
+  approveBounty: (bountyId: string, winnerAddress: string) => void;
+  cancelClaimByAdmin: (bountyId: string, claimantAddress: string) => void;
   isLoading: boolean;
   isSuccess: boolean;
   isError: boolean;
@@ -18,34 +18,57 @@ interface UseAdminActionsResult {
   hash: `0x${string}` | undefined;
 }
 
-export const useAdminActions = (): UseAdminActionsResult => {
+import { useAccount } from 'wagmi';
+
+export const useAdminActions = (onSuccess?: () => void): UseAdminActionsResult => {
+  const { chainId } = useAccount();
+  const queryClient = useQueryClient();
   const { data: hash, isPending, isError, error, writeContract } = useWriteContract();
 
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
-  const approveBounty = (bountyId: string) => {
+  useEffect(() => {
+    if (isTxSuccess) {
+      console.log("Admin action successful, invalidating queries.");
+      queryClient.invalidateQueries({ 
+        queryKey: [
+          'readContract',
+          {
+            address: deployedContractAddress.contractAddress,
+            functionName: 'getAllBounties',
+            chainId,
+          },
+        ]
+      });
+      if (onSuccess) {
+        onSuccess();
+      }
+    }
+  }, [isTxSuccess, onSuccess, queryClient, chainId]);
+
+  const approveBounty = (bountyId: string, winnerAddress: string) => {
     writeContract({
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
       functionName: 'approveBounty',
-      args: [bountyId],
+      args: [BigInt(bountyId), winnerAddress],
     });
   };
 
-  const submitSolution = (bountyId: string, solutionGithubUrl: string) => {
+  const cancelClaimByAdmin = (bountyId: string, claimantAddress: string) => {
     writeContract({
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
-      functionName: 'submitSolution',
-      args: [bountyId, solutionGithubUrl],
+      functionName: 'cancelClaimByAdmin',
+      args: [BigInt(bountyId), claimantAddress],
     });
   };
  
    return {
      approveBounty,
-     submitSolution, // Added submitSolution to the returned object
+     cancelClaimByAdmin,
      isLoading: isPending || isTxLoading,
      isSuccess: isTxSuccess,
      isError,
