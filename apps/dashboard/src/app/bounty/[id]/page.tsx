@@ -2,10 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useContractRead, useContractWrite, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { useReadContract, useWriteContract, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
+<<<<<<< HEAD
 import deployedContractAddress from '../../../../../../python_workspace/deployed_contract_address.json';
 import { useIsAdmin } from '../../../hooks/useIsAdmin';
+=======
+import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 
 interface BountyEvent {
   bountyId: string;
@@ -29,13 +33,14 @@ const BountyDetailPage: React.FC = () => {
   const { address, isConnected } = useAccount();
   const { isAdmin, isLoadingAdmin, adminError } = useIsAdmin();
 
-  const { data: bountyData, isLoading: isBountyLoading } = useContractRead({
+  const { data: bountyData, isLoading: isBountyLoading } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'bounties',
     args: [BigInt(bountyId)],
   });
 
+<<<<<<< HEAD
   const { data: acceptHash, writeContract: acceptBountyWrite, isPending: isAccepting } = useContractWrite();
   const { isLoading: isAcceptingConfirming, isSuccess: isAcceptingConfirmed } = useWaitForTransactionReceipt({
     hash: acceptHash,
@@ -55,6 +60,11 @@ const BountyDetailPage: React.FC = () => {
   const { isLoading: isPayingConfirming, isSuccess: isPayingConfirmed } = useWaitForTransactionReceipt({
     hash: payHash,
   });
+=======
+  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useWriteContract();
+  const { writeContract: completeBountyWrite, isPending: isCompleting } = useWriteContract();
+  const { writeContract: payBountyWrite, isPending: isPaying } = useWriteContract();
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 
   const handleAcceptBounty = () => {
     acceptBountyWrite({
@@ -108,8 +118,7 @@ const BountyDetailPage: React.FC = () => {
     }
 
     const fetchWinnerInfo = async () => {
-      // @ts-ignore
-      if (bountyData && statusMap[bountyData[6]] === 'Accepted') {
+      if (bountyData && statusMap[Number((bountyData as any).status)] === 'Accepted') {
         try {
           const response = await fetch('/dummy-events.json');
           const events: BountyEvent[] = await response.json();
@@ -140,6 +149,7 @@ const BountyDetailPage: React.FC = () => {
   }
 
   const currentBounty = bountyData ? {
+<<<<<<< HEAD
     // @ts-ignore
     id: bountyData[0].toString(),
     // @ts-ignore
@@ -154,6 +164,17 @@ const BountyDetailPage: React.FC = () => {
     status: bountyData[6],
     // @ts-ignore
     acceptor: bountyData[7], // New field
+=======
+    id: (bountyData as any).id.toString(),
+    creator: (bountyData as any).creator,
+    title: (bountyData as any).title,
+    description: (bountyData as any).description,
+    githubUrl: (bountyData as any).githubUrl,
+    reward: (bountyData as any).reward,
+    status: Number((bountyData as any).status),
+    claimant: (bountyData as any).claimant,
+    solutionGithubUrl: (bountyData as any).solutionGithubUrl,
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
   } : null;
 
   if (!currentBounty) {

@@ -1,34 +1,52 @@
+<<<<<<< HEAD
 import React, { useState } from 'react'; // Import useState
 import { type Bounty } from '../app/bounties/page'; // Import Bounty type
+=======
+"use client";
+import React from 'react';
+import { useClaimBounty } from '@/hooks/useClaimBounty';
+import { useAccount } from 'wagmi';
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 
 interface BountyCardProps {
   id: string;
   title: string;
   description: string;
+  githubUrl: string;
   reward: string;
   status: string;
+<<<<<<< HEAD
   creator: `0x${string}`;
   currentAccount: `0x${string}` | undefined;
   isAdmin: boolean; // Add isAdmin prop
+=======
+  isAdminView: boolean;
+  claimants?: string[];
+  onClaimSuccess?: () => void;
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'Open':
       return 'bg-blue-100 text-blue-800';
+<<<<<<< HEAD
     case 'Claimed':
       return 'bg-orange-100 text-orange-800'; // New status color
     case 'Accepted':
       return 'bg-green-100 text-green-800';
     case 'Completed':
       return 'bg-purple-100 text-purple-800';
+=======
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
     case 'Paid':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-green-100 text-green-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
 };
 
+<<<<<<< HEAD
 import { useContractWrite, useWaitForTransactionReceipt } from 'wagmi';
 // import { useSendTransaction } from 'wagmi'; // Removed
 // import { encodeFunctionData } from 'viem'; // Removed
@@ -190,13 +208,38 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward,
 
     // Default: No button
     return null;
+=======
+const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubUrl, reward, status, isAdminView, claimants = [], onClaimSuccess }) => {
+  const { address } = useAccount();
+  const statusColorClass = getStatusColor(status);
+  const { claimBounty, cancelClaim, isLoading: isClaiming, isSuccess: isClaimSuccess, isError: isClaimError, error: claimError } = useClaimBounty(onClaimSuccess);
+
+  const [isClaimedByUser, setIsClaimedByUser] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClaimedByUser(claimants.some(c => c.toLowerCase() === address?.toLowerCase()));
+  }, [claimants, address]);
+
+  const handleClaim = () => {
+    claimBounty(id);
+    setIsClaimedByUser(true);
+  };
+
+  const handleCancelClaim = () => {
+    cancelClaim(id);
+    setIsClaimedByUser(false);
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 mb-4">
+    <div className="bg-white shadow-md rounded-lg p-6 mb-4 flex flex-col">
       <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-700 mb-4">{description}</p>
-      <div className="flex justify-between items-center">
+      <p className="text-gray-700 text-sm mb-2">{description}</p> {/* Display description */}
+      <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline mb-4 truncate">
+        {githubUrl}
+      </a>
+      <div className="flex-grow"></div>
+      <div className="flex justify-between items-center mt-auto">
         <span className="text-lg font-bold text-indigo-600">{reward}</span>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColorClass}`}>
           {/* Display optimistic status for client if applicable */}
@@ -206,9 +249,44 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, reward,
       <a href={`/bounty/${id}`} className="mt-4 inline-block text-indigo-600 hover:text-indigo-800 font-medium">
         View Details
       </a>
+<<<<<<< HEAD
       <div className="mt-4 flex space-x-2">
         {renderActionButton()}
       </div>
+=======
+      {!isAdminView && status === 'Open' && (
+        <div className="mt-4">
+          {isClaimedByUser ? (
+            <button
+              onClick={handleCancelClaim}
+              disabled={isClaiming}
+              className="w-full bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
+            </button>
+          ) : (
+            <button
+              onClick={handleClaim}
+              disabled={isClaiming}
+              className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              {isClaiming ? 'Submitting Claim...' : 'Claim Bounty'}
+            </button>
+          )}
+          {isClaimSuccess && (
+            <p className="text-green-500 text-sm mt-2">Action successful!</p>
+          )}
+          {isClaimError && (
+            <p className="text-red-500 text-sm mt-2">Error: {claimError?.message}</p>
+          )}
+        </div>
+      )}
+      {isAdminView && status === 'Open' && claimants.length > 0 && (
+        <div className="mt-4 border-t pt-4">
+          <h4 className="font-semibold text-gray-800">Claimants ({claimants.length})</h4>
+        </div>
+      )}
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
     </div>
   );
 };

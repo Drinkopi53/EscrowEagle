@@ -23,9 +23,9 @@ contract BonusEscrow {
         nextBountyId = 0;
     }
 
-    function deposit() public payable {
-        // This function allows ETH to be sent to the contract.
-        // Further logic for handling the deposited ETH will be added later.
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
     }
 
     struct Bounty {
@@ -33,32 +33,45 @@ contract BonusEscrow {
         address creator;
         string title;
         string description;
+        string githubUrl;
         uint256 reward;
         Status status;
         address acceptor; // New field
     }
 
+<<<<<<< HEAD
     enum Status { Open, Accepted, Completed, Paid } // Removed Claimed status
+=======
+    enum Status { Open, Paid }
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 
-    uint256 nextBountyId;
-    mapping(uint256 => Bounty) bounties;
+    uint256 public nextBountyId;
+    mapping(uint256 => Bounty) public bounties;
+    mapping(uint256 => address[]) public claimants;
     uint256[] bountyIds;
 
     event BountyCreated(
         uint256 indexed id,
         address indexed creator,
         string title,
+        string githubUrl,
         uint256 reward
     );
+<<<<<<< HEAD
     // event BountyClaimed(uint256 indexed id, address indexed claimant); // Commented out: No longer an on-chain event
     event BountyAccepted(uint256 indexed id, address indexed acceptor);
     event BountyCompleted(uint256 indexed id);
     event BountyPaid(uint256 indexed id, address indexed winner);
+=======
+    event BountyClaimed(uint256 indexed id, address indexed claimant);
+    event BountyApproved(uint256 indexed id, address indexed winner, uint256 reward);
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
 
     function createBounty(
         string memory _title,
-        string memory _description
-    ) public payable {
+        string memory _description, // Added description parameter
+        string memory _githubUrl
+    ) public payable onlyOwner {
         require(msg.value > 0, "Bounty must have a reward");
 
         uint256 id = nextBountyId++;
@@ -67,13 +80,14 @@ contract BonusEscrow {
             creator: msg.sender,
             title: _title,
             description: _description,
+            githubUrl: _githubUrl,
             reward: msg.value,
             status: Status.Open,
             acceptor: address(0) // Initialize acceptor to address(0)
         });
         bountyIds.push(id);
 
-        emit BountyCreated(id, msg.sender, _title, msg.value);
+        emit BountyCreated(id, msg.sender, _title, _githubUrl, msg.value);
     }
 
     function getBountyStatus(uint256 _bountyId) public view returns (Status) {
@@ -89,6 +103,7 @@ contract BonusEscrow {
         return allBounties;
     }
 
+<<<<<<< HEAD
     // function claimBounty(uint256 _bountyId) public {
     //     require(_bountyId < nextBountyId, "Bounty does not exist");
     //     require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claiming");
@@ -110,22 +125,74 @@ contract BonusEscrow {
         bounty.status = Status.Accepted;
         bounty.acceptor = _claimant; // Set the provided claimant as the acceptor
         emit BountyAccepted(_bountyId, _claimant);
+=======
+    function claimBounty(uint256 _bountyId) public {
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not open for claims.");
+
+        // Prevent duplicate claims from the same address
+        for (uint i = 0; i < claimants[_bountyId].length; i++) {
+            require(claimants[_bountyId][i] != msg.sender, "You have already claimed this bounty.");
+        }
+        
+        claimants[_bountyId].push(msg.sender);
+        
+        emit BountyClaimed(_bountyId, msg.sender);
+>>>>>>> 4ac9eb62872321850b038e6afa5d69b20f2971b1
     }
 
-    function completeBounty(uint256 _bountyId) public {
-        require(bounties[_bountyId].status == Status.Accepted, "Bounty is not accepted");
-        // In a real scenario, this would be called by the bounty hunter or an oracle
-        bounties[_bountyId].status = Status.Completed;
-        emit BountyCompleted(_bountyId);
+    function getClaimants(uint256 _bountyId) public view returns (address[] memory) {
+        return claimants[_bountyId];
     }
 
-    function payBounty(uint256 _bountyId, address _winner) public {
-        require(bounties[_bountyId].status == Status.Completed, "Bounty is not completed");
-        require(bounties[_bountyId].reward > 0, "Bounty has no reward");
+    function cancelClaim(uint256 _bountyId) public {
+        address[] storage bountyClaimants = claimants[_bountyId];
+        bool found = false;
+        for (uint i = 0; i < bountyClaimants.length; i++) {
+            if (bountyClaimants[i] == msg.sender) {
+                // Remove the claimant by shifting the last element to the current position
+                bountyClaimants[i] = bountyClaimants[bountyClaimants.length - 1];
+                bountyClaimants.pop();
+                found = true;
+                break;
+            }
+        }
+        require(found, "You have not claimed this bounty.");
+    }
 
-        // Transfer reward to the winner
-        payable(_winner).transfer(bounties[_bountyId].reward);
-        bounties[_bountyId].status = Status.Paid;
-        emit BountyPaid(_bountyId, _winner);
+    function cancelClaimByAdmin(uint256 _bountyId, address _claimantAddress) public onlyOwner {
+        address[] storage bountyClaimants = claimants[_bountyId];
+        bool found = false;
+        for (uint i = 0; i < bountyClaimants.length; i++) {
+            if (bountyClaimants[i] == _claimantAddress) {
+                bountyClaimants[i] = bountyClaimants[bountyClaimants.length - 1];
+                bountyClaimants.pop();
+                found = true;
+                break;
+            }
+        }
+        require(found, "Claimant not found.");
+    }
+
+    function approveBounty(uint256 _bountyId, address _winner) public onlyOwner {
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not in a valid state to be approved.");
+        
+        Bounty storage bounty = bounties[_bountyId];
+        uint256 reward = bounty.reward;
+
+        // Verify the winner is in the claimants list
+        bool winnerFound = false;
+        for (uint i = 0; i < claimants[_bountyId].length; i++) {
+            if (claimants[_bountyId][i] == _winner) {
+                winnerFound = true;
+                break;
+            }
+        }
+        require(winnerFound, "Winner not found in claimants list.");
+        
+        bounty.status = Status.Paid;
+        
+        payable(_winner).transfer(reward);
+        
+        emit BountyApproved(_bountyId, _winner, reward);
     }
 }
