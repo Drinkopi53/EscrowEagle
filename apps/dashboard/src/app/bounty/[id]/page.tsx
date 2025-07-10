@@ -10,7 +10,7 @@ import deployedContractAddress from '../../../contracts/deployed_contract_addres
 interface BountyEvent {
   bountyId: string;
   eventName: string;
-  userName?: string; // Optional
+  userName?: string; // Pilihan
   address?: string;  // Optional
   prLink: string;
 }
