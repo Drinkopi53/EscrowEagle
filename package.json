@@ -4,7 +4,7 @@
   "description": "Local simulation environment for smart contract interaction with Python",
   "main": "index.js",
   "scripts": {
-    "start:hardhat": "npx hardhat node",
+    "start:hardhat": "npm run start --prefix src",
     "deploy:contract": "npx hardhat run src/deploy/01_deploy_escrow.js --network localhost",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

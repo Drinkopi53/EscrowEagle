@@ -1,13 +1,33 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cozy Palette */
+  --cozy-bg-main: #FDFBF6;
+  --cozy-text-main: #5C544D;
+  --cozy-bg-card: #FFFFFF;
+
+  --cozy-accent-primary-bg: #D8A788;
+  --cozy-accent-primary-text: #FFFFFF;
+
+  --cozy-accent-secondary-bg: #A8D8B9;
+  --cozy-accent-secondary-text: #3E5949;
+
+  --cozy-status-paid-bg: #C3E2C2;
+  --cozy-status-paid-text: #4A6749;
+
+  --cozy-status-error-bg: #F7C5C5;
+  --cozy-status-error-text: #7B4646;
+
+  --cozy-border-color: #E0D8CE;
+
+  /* Default theme variables, overridden by cozy palette */
+  --background: var(--cozy-bg-main);
+  --foreground: var(--cozy-text-main);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--background); /* Will use --cozy-bg-main */
+  --color-foreground: var(--foreground); /* Will use --cozy-text-main */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -23,4 +43,115 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Cozy Utility Classes */
+
+/* Text Colors */
+.text-cozy-main {
+  color: var(--cozy-text-main);
+}
+.text-cozy-accent-primary {
+  color: var(--cozy-accent-primary-bg);
+}
+.text-cozy-accent-secondary {
+  color: var(--cozy-accent-secondary-bg);
+}
+
+/* Background Colors */
+.bg-cozy-main {
+  background-color: var(--cozy-bg-main);
+}
+.bg-cozy-card {
+  background-color: var(--cozy-bg-card);
+}
+
+/* Button Styles */
+.btn-cozy {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem; /* rounded-md */
+  font-weight: bold;
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+}
+.btn-cozy:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+  --tw-ring-color: var(--cozy-accent-primary-bg); /* Default ring color */
+}
+
+.btn-cozy-primary {
+  background-color: var(--cozy-accent-primary-bg);
+  color: var(--cozy-accent-primary-text);
+}
+.btn-cozy-primary:hover {
+  background-color: color-mix(in srgb, var(--cozy-accent-primary-bg) 90%, black);
+}
+.btn-cozy-primary:focus {
+  --tw-ring-color: var(--cozy-accent-primary-bg);
+}
+
+.btn-cozy-secondary {
+  background-color: var(--cozy-accent-secondary-bg);
+  color: var(--cozy-accent-secondary-text);
+}
+.btn-cozy-secondary:hover {
+  background-color: color-mix(in srgb, var(--cozy-accent-secondary-bg) 90%, black);
+}
+.btn-cozy-secondary:focus {
+  --tw-ring-color: var(--cozy-accent-secondary-bg);
+}
+
+.btn-cozy-error {
+  background-color: var(--cozy-status-error-bg);
+  color: var(--cozy-status-error-text);
+}
+.btn-cozy-error:hover {
+  background-color: color-mix(in srgb, var(--cozy-status-error-bg) 90%, black);
+}
+.btn-cozy-error:focus {
+  --tw-ring-color: var(--cozy-status-error-bg);
+}
+
+
+/* Status Badge Styles */
+.badge-cozy {
+  padding: 0.25rem 0.75rem; /* px-3 py-1 */
+  border-radius: 9999px; /* rounded-full */
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 500; /* font-medium */
+  display: inline-block;
+}
+
+.badge-cozy-open {
+  background-color: var(--cozy-accent-secondary-bg);
+  color: var(--cozy-accent-secondary-text);
+}
+
+.badge-cozy-paid {
+  background-color: var(--cozy-status-paid-bg);
+  color: var(--cozy-status-paid-text);
+}
+
+.badge-cozy-error { /* For other statuses if needed */
+  background-color: var(--cozy-status-error-bg);
+  color: var(--cozy-status-error-text);
+}
+
+/* Link Styles */
+.link-cozy {
+  color: var(--cozy-accent-primary-bg);
+  text-decoration: none;
+}
+.link-cozy:hover {
+  text-decoration: underline;
+  color: color-mix(in srgb, var(--cozy-accent-primary-bg) 80%, black);
+}
+
+/* Border Color */
+.border-cozy {
+  border-color: var(--cozy-border-color);
 }
