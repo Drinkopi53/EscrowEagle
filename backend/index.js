@@ -58,20 +58,34 @@ app.post('/api/webhook', (req, res) => {
         const bountyIdMatch = commit.message.match(/#(\d+)/);
         if (bountyIdMatch) {
           const bountyId = bountyIdMatch[1];
-          const newCommit = {
-            bountyId: bountyId,
-            eventName: 'COMMIT',
-            userName: commit.author.username || commit.author.name, // Use name as fallback
-            prLink: commit.url,
-            commitId: commit.id,
-            timestamp: commit.timestamp
-          };
-          
-          // Ensure db.commits is an array before pushing
-          if (!Array.isArray(db.commits)) {
-            db.commits = [];
+          const githubUser = commit.author.username || commit.author.name;
+
+          // --- New Logic: Map GitHub user to Wallet Address ---
+          const userMappingPath = path.join(__dirname, 'user-mapping.json');
+          let walletAddress = null;
+          if (fs.existsSync(userMappingPath)) {
+            const userMapping = JSON.parse(fs.readFileSync(userMappingPath, 'utf-8'));
+            walletAddress = userMapping[githubUser];
           }
-          db.commits.push(newCommit);
+          // -----------------------------------------------------
+
+          if (walletAddress) {
+            const newCommit = {
+              bountyId: bountyId,
+              eventName: 'COMMIT',
+              address: walletAddress, // Store wallet address instead of userName
+              prLink: commit.url,
+              commitId: commit.id,
+              timestamp: commit.timestamp
+            };
+
+            if (!Array.isArray(db.commits)) {
+              db.commits = [];
+            }
+            db.commits.push(newCommit);
+          } else {
+            console.log(`Commit from user ${githubUser} ignored: no wallet mapping found.`);
+          }
         }
       });
 
@@ -105,4 +119,3 @@ app.get('/api/bounties/:bountyId/committers', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
 });
-

@@ -10,7 +10,8 @@ import deployedContractAddress from '../../../contracts/deployed_contract_addres
 interface BountyEvent {
   bountyId: string;
   eventName: string;
-  userName: string;
+  userName?: string; // Optional
+  address?: string;  // Optional
   prLink: string;
 }
 
@@ -112,7 +113,7 @@ const BountyDetailPage: React.FC = () => {
           const prMergedEvent = events.find(
             (event) => event.eventName === 'PR_MERGED' && event.bountyId === bountyId
           );
-          if (prMergedEvent) {
+          if (prMergedEvent && prMergedEvent.userName) {
             setWinnerInfo({
               userName: prMergedEvent.userName,
               prLink: prMergedEvent.prLink,
@@ -356,15 +357,15 @@ const BountyDetailPage: React.FC = () => {
                   <thead className="border-b border-cozy font-medium bg-cozy-main bg-opacity-5">
                     <tr>
                       <th scope="col" className="px-6 py-4 w-16">#</th>
-                      <th scope="col" className="px-6 py-4">User Name</th>
-                      <th scope="col" className="px-6 py-4">PR Link</th>
+                      <th scope="col" className="px-6 py-4">Address</th>
+                      <th scope="col" className="px-6 py-4">Commit Link</th>
                     </tr>
                   </thead>
                   <tbody>
                     {committers.map((committer, index) => (
                       <tr key={index} className="border-b border-cozy transition duration-300 ease-in-out hover:bg-cozy-main hover:bg-opacity-10">
                         <td className="whitespace-nowrap px-6 py-4 font-medium">{index + 1}</td>
-                        <td className="whitespace-nowrap px-6 py-4">{committer.userName}</td>
+                        <td className="whitespace-nowrap px-6 py-4 font-mono">{committer.address}</td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <a
                             href={committer.prLink}
