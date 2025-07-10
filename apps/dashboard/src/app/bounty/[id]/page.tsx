@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useParams, useRouter } from 'next/navigation';
 import { useReadContract, useWriteContract, useAccount } from 'wagmi';
@@ -17,23 +17,17 @@ interface BountyEvent {
 
 const statusMap: { [key: number]: string } = {
   0: 'Open',
-  1: 'Accepted',
-  2: 'Completed',
-  3: 'Paid',
+  1: 'Paid', // Simplified status: 1 now directly maps to Paid
 };
 
 const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'Open':
       return 'badge-cozy badge-cozy-open';
-    case 'Accepted':
-      return 'badge-cozy badge-cozy-error';
-    case 'Completed':
-      return 'badge-cozy badge-cozy-error';
     case 'Paid':
       return 'badge-cozy badge-cozy-paid';
     default:
-      return 'badge-cozy badge-cozy-error';
+      return 'badge-cozy badge-cozy-error'; // Fallback for unexpected statuses
   }
 };
 
@@ -48,7 +42,7 @@ const BountyDetailPage: React.FC = () => {
   const { address } = useAccount();
   const { isAdmin } = useIsAdmin();
 
-  const { data: bountyData, isLoading: isBountyLoading, error: bountyError } = useReadContract({
+  const { data: bountyData, isLoading: isBountyLoading, error: bountyError, refetch: refetchBountyData } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'bounties',
@@ -58,7 +52,7 @@ const BountyDetailPage: React.FC = () => {
     },
   });
 
-  const { data: claimantsData, isLoading: isLoadingClaimants } = useReadContract({
+  const { data: claimantsData, isLoading: isLoadingClaimants, refetch: refetchClaimantsData } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'getClaimants',
@@ -68,24 +62,8 @@ const BountyDetailPage: React.FC = () => {
     },
   });
 
-
-
-  const { writeContract: completeBountyWrite, isPending: isCompleting } = useWriteContract();
   const { writeContract: payBountyWrite, isPending: isPaying } = useWriteContract();
   const { writeContract: cancelClaimByAdminWrite, isPending: isCancelling } = useWriteContract();
-
-
-
-  const handleCompleteBounty = () => {
-    completeBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'completeBounty',
-      args: [BigInt(bountyId)],
-    });
-  };
-
-
 
   const handleCancelClaim = (claimantAddress: string) => {
     cancelClaimByAdminWrite({
@@ -104,6 +82,18 @@ const BountyDetailPage: React.FC = () => {
       args: [BigInt(bountyId), winnerAddress as `0x${string}`],
     });
   };
+
+  // Fetch committers from our new backend API
+  const fetchCommitters = useCallback(async () => {
+      if (!bountyId) return;
+      try {
+          const response = await fetch(`http://localhost:3001/api/bounties/${bountyId}/committers`);
+          const data: BountyEvent[] = await response.json();
+          setCommitters(data);
+      } catch (error) {
+          console.error('Error fetching committers:', error);
+      }
+  }, [bountyId]);
 
   useEffect(() => {
     // Fetch winner info from the dummy file (as backend doesn't support it yet)
@@ -127,21 +117,16 @@ const BountyDetailPage: React.FC = () => {
       }
     };
 
-    // Fetch committers from our new backend API
-    const fetchCommitters = async () => {
-        if (!bountyId) return;
-        try {
-            const response = await fetch(`http://localhost:3001/api/bounties/${bountyId}/committers`);
-            const data: BountyEvent[] = await response.json();
-            setCommitters(data);
-        } catch (error) {
-            console.error('Error fetching committers:', error);
-        }
-    };
-
     fetchWinnerInfo();
     fetchCommitters();
-  }, [bountyData, bountyId]);
+  }, [bountyData, bountyId, refetchBountyData, refetchClaimantsData, fetchCommitters]);
+
+  const handleRefresh = useCallback(async () => {
+    await refetchBountyData();
+    await refetchClaimantsData();
+
+    await fetchCommitters();
+  }, [refetchBountyData, refetchClaimantsData, fetchCommitters]);
 
   if (isBountyLoading || isLoadingClaimants) {
     return (
@@ -222,18 +207,26 @@ const BountyDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-cozy-main py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header with Back Button */}
-        <div className="mb-6">
+        {/* Header with Back Button and Refresh Button */}
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <button
+              onClick={() => router.push('/')}
+              className="btn-cozy btn-cozy-secondary mb-4"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-cozy-main mb-2">
+              Bounty Details
+            </h1>
+            <p className="text-cozy-main opacity-80">ID: {currentBounty!.id}</p>
+          </div>
           <button
-            onClick={() => router.push('/')}
-            className="btn-cozy btn-cozy-secondary mb-4"
+            onClick={handleRefresh}
+            className="btn-cozy btn-cozy-secondary"
           >
-            ← Back to Dashboard
+            Refresh Data
           </button>
-          <h1 className="text-3xl font-bold text-cozy-main mb-2">
-            Bounty Details
-          </h1>
-          <p className="text-cozy-main opacity-80">ID: {currentBounty!.id}</p>
         </div>
 
         {/* Main Bounty Card */}
@@ -348,8 +341,8 @@ const BountyDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Committers Table */}
-          {committers && committers.length > 0 && (
+          {/* Committers Table - Hidden if bounty is Paid */}
+          {committers && committers.length > 0 && statusMap[currentBounty!.status] !== 'Paid' && (
             <div className="mt-8 pt-6 border-t border-cozy">
               <h3 className="text-xl font-bold text-cozy-main mb-4">
                 Commiters ({committers.length})
@@ -383,7 +376,7 @@ const BountyDetailPage: React.FC = () => {
                           <td className="whitespace-nowrap px-6 py-4">
                             <button
                               onClick={() => handleApproveCommiter(committer.address!)}
-                              disabled={statusMap[currentBounty.status] !== 'Completed' || isPaying}
+                              disabled={statusMap[currentBounty.status] !== 'Open' || isPaying}
                               className="btn-cozy btn-cozy-primary btn-sm"
                             >
                               {isPaying ? 'Approving...' : 'Approve'}
@@ -398,19 +391,8 @@ const BountyDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Action Buttons (removed Complete Bounty button) */}
           <div className="flex flex-wrap gap-4">
-
-            {statusMap[currentBounty!.status] === 'Accepted' && (
-              <button
-                onClick={handleCompleteBounty}
-                className="btn-cozy btn-cozy-primary"
-                disabled={isCompleting}
-              >
-                {isCompleting ? 'Completing...' : 'Complete Bounty'}
-              </button>
-            )}
-
           </div>
         </div>
       </div>

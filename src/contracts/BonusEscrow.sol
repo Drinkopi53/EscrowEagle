@@ -136,8 +136,8 @@ contract BonusEscrow {
         require(found, "Claimant not found.");
     }
 
-    function approveBounty(uint256 _bountyId, address _winner) public onlyOwner {
-        require(bounties[_bountyId].status == Status.Open, "Bounty is not in a valid state to be approved.");
+    function payBounty(uint256 _bountyId, address _winner) public onlyOwner {
+        require(bounties[_bountyId].status == Status.Open, "Bounty is not open for payment.");
         
         Bounty storage bounty = bounties[_bountyId];
         uint256 reward = bounty.reward;

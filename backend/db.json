@@ -1,0 +1,36 @@
+{
+  "commits": [
+    {
+      "bountyId": "1",
+      "eventName": "COMMIT",
+      "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "prLink": "https://github.com/varizibabang/App-tes/commit/065624eef6598e89dd725d259288df87352b56a1",
+      "commitId": "065624eef6598e89dd725d259288df87352b56a1",
+      "timestamp": "2025-07-10T23:36:08+07:00"
+    },
+    {
+      "bountyId": "123",
+      "eventName": "COMMIT",
+      "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "prLink": "https://github.com/varizibabang/App-tes/commit/8429d208381633f69b67bd0feb58541c0e12e424",
+      "commitId": "8429d208381633f69b67bd0feb58541c0e12e424",
+      "timestamp": "2025-07-10T23:49:10+07:00"
+    },
+    {
+      "bountyId": "123",
+      "eventName": "COMMIT",
+      "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "prLink": "https://github.com/varizibabang/App-tes/commit/12aa9fe20ad5853bc09c7e4231e5c0fb8285f168",
+      "commitId": "12aa9fe20ad5853bc09c7e4231e5c0fb8285f168",
+      "timestamp": "2025-07-10T23:56:29+07:00"
+    },
+    {
+      "bountyId": "0",
+      "eventName": "COMMIT",
+      "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "prLink": "https://github.com/varizibabang/App-tes/commit/ac6f7d17ad49d768f1676e1617b4ed239d64b9b7",
+      "commitId": "ac6f7d17ad49d768f1676e1617b4ed239d64b9b7",
+      "timestamp": "2025-07-10T23:59:30+07:00"
+    }
+  ]
+}
