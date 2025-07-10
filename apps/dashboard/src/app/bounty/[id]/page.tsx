@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useParams, useRouter } from 'next/navigation';
 import { useReadContract, useWriteContract, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
 import deployedContractAddress from '../../../contracts/deployed_contract_address.json';
@@ -9,7 +10,8 @@ import deployedContractAddress from '../../../contracts/deployed_contract_addres
 interface BountyEvent {
   bountyId: string;
   eventName: string;
-  userName: string;
+  userName?: string; // Pilihan
+  address?: string;  // Optional
   prLink: string;
 }
 
@@ -20,31 +22,59 @@ const statusMap: { [key: number]: string } = {
   3: 'Paid',
 };
 
+const getStatusBadgeClass = (status: string) => {
+  switch (status) {
+    case 'Open':
+      return 'badge-cozy badge-cozy-open';
+    case 'Accepted':
+      return 'badge-cozy badge-cozy-error';
+    case 'Completed':
+      return 'badge-cozy badge-cozy-error';
+    case 'Paid':
+      return 'badge-cozy badge-cozy-paid';
+    default:
+      return 'badge-cozy badge-cozy-error';
+  }
+};
+
+// Lol
+
 const BountyDetailPage: React.FC = () => {
   const params = useParams();
+  const router = useRouter();
   const bountyId = params.id as string;
   const [winnerInfo, setWinnerInfo] = useState<{ userName: string; prLink: string } | null>(null);
+  const [committers, setCommitters] = useState<BountyEvent[]>([]);
   const { address } = useAccount();
+  const { isAdmin } = useIsAdmin();
 
-  const { data: bountyData, isLoading: isBountyLoading } = useReadContract({
+  const { data: bountyData, isLoading: isBountyLoading, error: bountyError } = useReadContract({
     address: deployedContractAddress.contractAddress as `0x${string}`,
     abi: BonusEscrowABI,
     functionName: 'bounties',
     args: [BigInt(bountyId)],
+    query: { 
+      enabled: !!bountyId && !isNaN(Number(bountyId)), // Only fetch if bountyId is valid
+    },
   });
 
-  const { writeContract: acceptBountyWrite, isPending: isAccepting } = useWriteContract();
+  const { data: claimantsData, isLoading: isLoadingClaimants } = useReadContract({
+    address: deployedContractAddress.contractAddress as `0x${string}`,
+    abi: BonusEscrowABI,
+    functionName: 'getClaimants',
+    args: [BigInt(bountyId)],
+    query: {
+      enabled: !!bountyId && !isNaN(Number(bountyId)), // Only fetch if bountyId is valid
+    },
+  });
+
+
+
   const { writeContract: completeBountyWrite, isPending: isCompleting } = useWriteContract();
   const { writeContract: payBountyWrite, isPending: isPaying } = useWriteContract();
+  const { writeContract: cancelClaimByAdminWrite, isPending: isCancelling } = useWriteContract();
 
-  const handleAcceptBounty = () => {
-    acceptBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'acceptBounty',
-      args: [BigInt(bountyId)],
-    });
-  };
+
 
   const handleCompleteBounty = () => {
     completeBountyWrite({
@@ -55,18 +85,28 @@ const BountyDetailPage: React.FC = () => {
     });
   };
 
-  const handlePayBounty = () => {
-    // In a real app, _winner would be determined by the oracle or user input
-    // For this demo, we'll use a dummy winner address or the connected account
+
+
+  const handleCancelClaim = (claimantAddress: string) => {
+    cancelClaimByAdminWrite({
+      address: deployedContractAddress.contractAddress as `0x${string}`,
+      abi: BonusEscrowABI,
+      functionName: 'cancelClaimByAdmin',
+      args: [BigInt(bountyId), claimantAddress as `0x${string}`],
+    });
+  };
+
+  const handleApproveCommiter = (winnerAddress: string) => {
     payBountyWrite({
       address: deployedContractAddress.contractAddress as `0x${string}`,
       abi: BonusEscrowABI,
       functionName: 'payBounty',
-      args: [BigInt(bountyId), address],
+      args: [BigInt(bountyId), winnerAddress as `0x${string}`],
     });
   };
 
   useEffect(() => {
+    // Fetch winner info from the dummy file (as backend doesn't support it yet)
     const fetchWinnerInfo = async () => {
       if (bountyData && statusMap[Number((bountyData as any).status)] === 'Accepted') {
         try {
@@ -75,99 +115,303 @@ const BountyDetailPage: React.FC = () => {
           const prMergedEvent = events.find(
             (event) => event.eventName === 'PR_MERGED' && event.bountyId === bountyId
           );
-          if (prMergedEvent) {
+          if (prMergedEvent && prMergedEvent.userName) {
             setWinnerInfo({
               userName: prMergedEvent.userName,
               prLink: prMergedEvent.prLink,
             });
           }
         } catch (error) {
-          console.error('Error fetching dummy events:', error);
+          console.error('Error fetching dummy winner events:', error);
         }
       }
     };
 
+    // Fetch committers from our new backend API
+    const fetchCommitters = async () => {
+        if (!bountyId) return;
+        try {
+            const response = await fetch(`http://localhost:3001/api/bounties/${bountyId}/committers`);
+            const data: BountyEvent[] = await response.json();
+            setCommitters(data);
+        } catch (error) {
+            console.error('Error fetching committers:', error);
+        }
+    };
+
     fetchWinnerInfo();
+    fetchCommitters();
   }, [bountyData, bountyId]);
 
-  if (isBountyLoading) {
-    return <div className="text-center py-8">Loading bounty details...</div>;
+  if (isBountyLoading || isLoadingClaimants) {
+    return (
+      <div className="min-h-screen bg-cozy-main flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-cozy-main text-lg font-medium">Loading bounty details...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Validate bountyId
+  if (!bountyId || isNaN(Number(bountyId))) {
+    return (
+      <div className="min-h-screen bg-cozy-main flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-cozy-main text-lg font-medium mb-4">Invalid bounty ID.</div>
+          <button
+            onClick={() => router.push('/')}
+            className="btn-cozy btn-cozy-primary"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if contract read failed
+  if (bountyError) {
+    return (
+      <div className="min-h-screen bg-cozy-main flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-cozy-main text-lg font-medium mb-4">Error loading bounty data.</div>
+          <div className="text-cozy-main text-sm mb-4 opacity-70">{bountyError.message}</div>
+          <button
+            onClick={() => router.push('/')}
+            className="btn-cozy btn-cozy-primary"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const currentBounty = bountyData ? {
-    id: (bountyData as any).id.toString(),
-    creator: (bountyData as any).creator,
-    title: (bountyData as any).title,
-    description: (bountyData as any).description,
-    githubUrl: (bountyData as any).githubUrl,
-    reward: (bountyData as any).reward,
-    status: Number((bountyData as any).status),
-    claimant: (bountyData as any).claimant,
-    solutionGithubUrl: (bountyData as any).solutionGithubUrl,
+    id: bountyId, // Use bountyId from URL params for consistency
+    creator: (bountyData as any[])[1],
+    title: (bountyData as any[])[2],
+    description: (bountyData as any[])[3],
+    githubUrl: (bountyData as any[])[4],
+    reward: (bountyData as any[])[5],
+    status: Number((bountyData as any[])[6]),
   } : null;
 
-  if (!currentBounty) {
-    return <div className="text-center py-8">Bounty not found.</div>;
+  if (!currentBounty || !currentBounty.creator) {
+    return (
+      <div className="min-h-screen bg-cozy-main flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-cozy-main text-lg font-medium mb-4">Bounty not found or not yet created.</div>
+          <div className="text-cozy-main text-sm mb-4 opacity-70">Bounty ID: {bountyId}</div>
+          <button
+            onClick={() => router.push('/')}
+            className="btn-cozy btn-cozy-primary"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
+  // At this point, we know currentBounty is not null due to early returns above
+  const statusBadgeClass = getStatusBadgeClass(statusMap[currentBounty!.status]);
+  const claimants = claimantsData as string[] | undefined;
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Bounty Details for ID: {currentBounty.id}</h1>
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{currentBounty.title}</h2>
-        <p className="text-gray-700 mb-4">{currentBounty.description}</p>
-        <p className="text-gray-700 mb-2">Reward: {`${Number(currentBounty.reward) / 1e18} Etherium`}</p>
-        <p className="text-gray-700 mb-2">Status: {statusMap[currentBounty.status]}</p>
-        <p className="text-gray-700 mb-2">Creator: {currentBounty.creator}</p>
+    <div className="min-h-screen bg-cozy-main py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header with Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => router.push('/')}
+            className="btn-cozy btn-cozy-secondary mb-4"
+          >
+            ← Back to Dashboard
+          </button>
+          <h1 className="text-3xl font-bold text-cozy-main mb-2">
+            Bounty Details
+          </h1>
+          <p className="text-cozy-main opacity-80">ID: {currentBounty!.id}</p>
+        </div>
 
-        {winnerInfo && (
-          <div className="mt-4 p-4 bg-green-50 rounded-md">
-            <h2 className="text-xl font-semibold text-green-800 mb-2">Winner Information:</h2>
-            <p className="text-gray-700">
-              User Name: <span className="font-medium">{winnerInfo.userName}</span>
-            </p>
-            <p className="text-gray-700">
-              PR Link:{' '}
-              <a
-                href={winnerInfo.prLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                {winnerInfo.prLink}
-              </a>
-            </p>
+        {/* Main Bounty Card */}
+        <div className="bg-cozy-card shadow-lg rounded-lg border border-cozy p-8 mb-6">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl font-bold text-cozy-main">{currentBounty!.title}</h2>
+            <span className={statusBadgeClass}>
+              {statusMap[currentBounty!.status]}
+            </span>
           </div>
-        )}
+          
+          <p className="text-cozy-main mb-6 text-lg leading-relaxed">
+            {currentBounty!.description}
+          </p>
 
-        <div className="mt-6 flex space-x-4">
-          {statusMap[currentBounty.status] === 'Open' && currentBounty.creator === address && (
-            <button
-              onClick={handleAcceptBounty}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isAccepting}
+          {/* GitHub URL */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-cozy-main mb-2 uppercase tracking-wide">
+              GitHub Repository
+            </h3>
+            <a 
+              href={currentBounty!.githubUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="link-cozy text-lg break-all"
             >
-              {isAccepting ? 'Accepting...' : 'Accept Bounty'}
-            </button>
+              {currentBounty!.githubUrl}
+            </a>
+          </div>
+
+          {/* Reward and Creator Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-cozy-main bg-opacity-5 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-cozy-main mb-2 uppercase tracking-wide">
+                Reward
+              </h3>
+              <p className="text-2xl font-bold text-cozy-accent-primary">
+                {`${Number(currentBounty!.reward) / 1e18} ETH`}
+              </p>
+            </div>
+            <div className="bg-cozy-main bg-opacity-5 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-cozy-main mb-2 uppercase tracking-wide">
+                Creator
+              </h3>
+              <p className="text-sm text-cozy-main font-mono break-all">
+                {currentBounty!.creator}
+              </p>
+            </div>
+          </div>
+
+          {/* Winner Information */}
+          {winnerInfo && (
+            <div className="bg-cozy-status-paid-bg rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-semibold text-cozy-status-paid-text mb-4">
+                🎉 Winner Information
+              </h3>
+              <div className="space-y-2">
+                <p className="text-cozy-status-paid-text">
+                  <span className="font-medium">User Name:</span> {winnerInfo!.userName}
+                </p>
+                <p className="text-cozy-status-paid-text">
+                  <span className="font-medium">PR Link:</span>{' '}
+                  <a
+                    href={winnerInfo!.prLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="link-cozy underline"
+                  >
+                    {winnerInfo!.prLink}
+                  </a>
+                </p>
+              </div>
+            </div>
           )}
-          {statusMap[currentBounty.status] === 'Accepted' && (
-            <button
-              onClick={handleCompleteBounty}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isCompleting}
-            >
-              {isCompleting ? 'Completing...' : 'Complete Bounty'}
-            </button>
+
+          {/* Claimants Table */}
+          {claimants && claimants.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-cozy">
+              <h3 className="text-xl font-bold text-cozy-main mb-4">
+                Claimants ({ claimants.length })
+              </h3>
+              <div className="overflow-x-auto bg-cozy-main bg-opacity-5 rounded-lg border border-cozy">
+                <table className="min-w-full text-left text-sm text-cozy-main">
+                  <thead className="border-b border-cozy font-medium bg-cozy-main bg-opacity-5">
+                    <tr>
+                      <th scope="col" className="px-6 py-4 w-16">#</th>
+                      <th scope="col" className="px-6 py-4">Address</th>
+                      {isAdmin && <th scope="col" className="px-6 py-4">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {claimants.map((claimant, index) => (
+                      <tr key={index} className="border-b border-cozy transition duration-300 ease-in-out hover:bg-cozy-main hover:bg-opacity-10">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium">{index + 1}</td>
+                        <td className="whitespace-nowrap px-6 py-4 font-mono">{claimant}</td>
+                        {isAdmin && (
+                          <td className="whitespace-nowrap px-6 py-4">
+                            <button
+                              onClick={() => handleCancelClaim(claimant)}
+                              disabled={isCancelling}
+                              className="btn-cozy btn-cozy-error btn-sm"
+                            >
+                              {isCancelling ? 'Cancelling...' : 'Cancel'}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-          {statusMap[currentBounty.status] === 'Completed' && currentBounty.creator === address && (
-            <button
-              onClick={handlePayBounty}
-              className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
-              disabled={isPaying}
-            >
-              {isPaying ? 'Paying...' : 'Pay Bounty'}
-            </button>
+
+          {/* Committers Table */}
+          {committers && committers.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-cozy">
+              <h3 className="text-xl font-bold text-cozy-main mb-4">
+                Commiters ({committers.length})
+              </h3>
+              <div className="overflow-x-auto bg-cozy-main bg-opacity-5 rounded-lg border border-cozy">
+                <table className="min-w-full text-left text-sm text-cozy-main">
+                  <thead className="border-b border-cozy font-medium bg-cozy-main bg-opacity-5">
+                    <tr>
+                      <th scope="col" className="px-6 py-4 w-16">#</th>
+                      <th scope="col" className="px-6 py-4">Address</th>
+                      <th scope="col" className="px-6 py-4">Commit Link</th>
+                      <th scope="col" className="px-6 py-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {committers.map((committer, index) => (
+                      <tr key={index} className="border-b border-cozy transition duration-300 ease-in-out hover:bg-cozy-main hover:bg-opacity-10">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium">{index + 1}</td>
+                        <td className="whitespace-nowrap px-6 py-4 font-mono">{committer.address}</td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <a
+                            href={committer.prLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link-cozy underline"
+                          >
+                            {committer.prLink}
+                          </a>
+                        </td>
+                        {currentBounty.creator === address && (
+                          <td className="whitespace-nowrap px-6 py-4">
+                            <button
+                              onClick={() => handleApproveCommiter(committer.address!)}
+                              disabled={statusMap[currentBounty.status] !== 'Completed' || isPaying}
+                              className="btn-cozy btn-cozy-primary btn-sm"
+                            >
+                              {isPaying ? 'Approving...' : 'Approve'}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-4">
+
+            {statusMap[currentBounty!.status] === 'Accepted' && (
+              <button
+                onClick={handleCompleteBounty}
+                className="btn-cozy btn-cozy-primary"
+                disabled={isCompleting}
+              >
+                {isCompleting ? 'Completing...' : 'Complete Bounty'}
+              </button>
+            )}
+
+          </div>
         </div>
       </div>
     </div>
