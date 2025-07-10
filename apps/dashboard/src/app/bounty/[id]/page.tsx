@@ -37,6 +37,8 @@ const getStatusBadgeClass = (status: string) => {
   }
 };
 
+// Lol
+
 const BountyDetailPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
