@@ -15,20 +15,20 @@ interface BountyCardProps {
   onClaimSuccess?: () => void;
 }
 
-const getStatusColor = (status: string) => {
+const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'Open':
-      return 'bg-blue-100 text-blue-800';
+      return 'badge-cozy badge-cozy-open';
     case 'Paid':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
+      return 'badge-cozy badge-cozy-paid';
+    default: // Assuming other statuses might use a default or error-like cozy badge
+      return 'badge-cozy badge-cozy-error';
   }
 };
 
 const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubUrl, reward, status, isAdminView, claimants = [], onClaimSuccess }) => {
   const { address } = useAccount();
-  const statusColorClass = getStatusColor(status);
+  const statusBadgeClass = getStatusBadgeClass(status);
   const { claimBounty, cancelClaim, isLoading: isClaiming, isSuccess: isClaimSuccess, isError: isClaimError, error: claimError } = useClaimBounty(onClaimSuccess);
 
   const [isClaimedByUser, setIsClaimedByUser] = React.useState(false);
@@ -48,20 +48,20 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 mb-4 flex flex-col">
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-700 text-sm mb-2">{description}</p> {/* Display description */}
-      <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline mb-4 truncate">
+    <div className="bg-cozy-card shadow-md rounded-lg p-6 mb-4 flex flex-col border border-cozy">
+      <h3 className="text-xl font-semibold text-cozy-main mb-2">{title}</h3>
+      <p className="text-cozy-main text-sm mb-2">{description}</p> {/* Display description */}
+      <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="link-cozy mb-4 truncate">
         {githubUrl}
       </a>
       <div className="flex-grow"></div>
       <div className="flex justify-between items-center mt-auto">
-        <span className="text-lg font-bold text-indigo-600">{reward}</span>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColorClass}`}>
+        <span className="text-lg font-bold text-cozy-accent-primary">{reward}</span>
+        <span className={statusBadgeClass}>
           {status}
         </span>
       </div>
-      <a href={`/bounty/${id}`} className="mt-4 inline-block text-indigo-600 hover:text-indigo-800 font-medium">
+      <a href={`/bounty/${id}`} className="mt-4 inline-block link-cozy font-medium">
         View Details
       </a>
       {!isAdminView && status === 'Open' && (
@@ -70,7 +70,7 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
             <button
               onClick={handleCancelClaim}
               disabled={isClaiming}
-              className="w-full bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="w-full btn-cozy btn-cozy-error"
             >
               {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
             </button>
@@ -78,22 +78,22 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
             <button
               onClick={handleClaim}
               disabled={isClaiming}
-              className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="w-full btn-cozy btn-cozy-secondary" // Using secondary for claim as primary is for main page actions or positive final actions
             >
               {isClaiming ? 'Submitting Claim...' : 'Claim Bounty'}
             </button>
           )}
           {isClaimSuccess && (
-            <p className="text-green-500 text-sm mt-2">Action successful!</p>
+            <p className="text-sm mt-2" style={{color: 'var(--cozy-status-paid-text)'}}>Action successful!</p>
           )}
           {isClaimError && (
-            <p className="text-red-500 text-sm mt-2">Error: {claimError?.message}</p>
+            <p className="text-sm mt-2" style={{color: 'var(--cozy-status-error-text)'}}>Error: {claimError?.message}</p>
           )}
         </div>
       )}
       {isAdminView && status === 'Open' && claimants.length > 0 && (
-        <div className="mt-4 border-t pt-4">
-          <h4 className="font-semibold text-gray-800">Claimants ({claimants.length})</h4>
+        <div className="mt-4 border-t border-cozy pt-4">
+          <h4 className="font-semibold text-cozy-main">Claimants ({claimants.length})</h4>
         </div>
       )}
     </div>
