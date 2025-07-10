@@ -83,16 +83,7 @@ const BountyDetailPage: React.FC = () => {
     });
   };
 
-  const handlePayBounty = () => {
-    // In a real app, _winner would be determined by the oracle or user input
-    // For this demo, we'll use a dummy winner address or the connected account
-    payBountyWrite({
-      address: deployedContractAddress.contractAddress as `0x${string}`,
-      abi: BonusEscrowABI,
-      functionName: 'payBounty',
-      args: [BigInt(bountyId), address],
-    });
-  };
+
 
   const handleCancelClaim = (claimantAddress: string) => {
     cancelClaimByAdminWrite({
@@ -100,6 +91,15 @@ const BountyDetailPage: React.FC = () => {
       abi: BonusEscrowABI,
       functionName: 'cancelClaimByAdmin',
       args: [BigInt(bountyId), claimantAddress as `0x${string}`],
+    });
+  };
+
+  const handleApproveCommiter = (winnerAddress: string) => {
+    payBountyWrite({
+      address: deployedContractAddress.contractAddress as `0x${string}`,
+      abi: BonusEscrowABI,
+      functionName: 'payBounty',
+      args: [BigInt(bountyId), winnerAddress as `0x${string}`],
     });
   };
 
@@ -359,6 +359,7 @@ const BountyDetailPage: React.FC = () => {
                       <th scope="col" className="px-6 py-4 w-16">#</th>
                       <th scope="col" className="px-6 py-4">Address</th>
                       <th scope="col" className="px-6 py-4">Commit Link</th>
+                      <th scope="col" className="px-6 py-4">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -376,6 +377,17 @@ const BountyDetailPage: React.FC = () => {
                             {committer.prLink}
                           </a>
                         </td>
+                        {currentBounty.creator === address && (
+                          <td className="whitespace-nowrap px-6 py-4">
+                            <button
+                              onClick={() => handleApproveCommiter(committer.address!)}
+                              disabled={statusMap[currentBounty.status] !== 'Completed' || isPaying}
+                              className="btn-cozy btn-cozy-primary btn-sm"
+                            >
+                              {isPaying ? 'Approving...' : 'Approve'}
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -396,15 +408,7 @@ const BountyDetailPage: React.FC = () => {
                 {isCompleting ? 'Completing...' : 'Complete Bounty'}
               </button>
             )}
-            {statusMap[currentBounty!.status] === 'Completed' && currentBounty!.creator === address && (
-              <button
-                onClick={handlePayBounty}
-                className="btn-cozy btn-cozy-primary"
-                disabled={isPaying}
-              >
-                {isPaying ? 'Paying...' : 'Pay Bounty'}
-              </button>
-            )}
+
           </div>
         </div>
       </div>
