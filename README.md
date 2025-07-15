@@ -706,16 +706,14 @@ python src/main.py
 ```
 Oracle ini akan membaca dummy events dan secara otomatis memicu fungsi `approveBounty` pada smart contract. Ini berguna untuk simulasi alur kerja otomatis.
 
-### Diagram Alur Eksekusi
-```mermaid
-graph TD
-    A[Start Hardhat Node] --> B[Deploy Smart Contract]
-    B --> C[Start Frontend Dashboard]
-    B --> D[Run Python Oracle (Opsional)]
-    C -- Interaksi Pengguna --> E[Admin Workflow]
-    C -- Interaksi Pengguna --> F[Client Workflow]
-    D -- Otomasi --> G[Oracle Workflow]
-```
+### Alur Eksekusi Proyek
+Berikut adalah alur eksekusi proyek secara berurutan:
+1.  **Start Hardhat Node**: Memulai node blockchain lokal Hardhat.
+2.  **Deploy Smart Contract**: Mendeploy smart contract ke Hardhat Network.
+3.  **Start Frontend Dashboard**: Memulai aplikasi frontend Next.js.
+4.  **Run Python Oracle (Opsional)**: Menjalankan script Python Oracle untuk simulasi otomatisasi.
+
+Interaksi pengguna (Admin Workflow dan Client Workflow) terjadi melalui Frontend Dashboard, sementara Oracle Workflow berjalan secara otomatis setelah deployment kontrak.
 
 ---
 
