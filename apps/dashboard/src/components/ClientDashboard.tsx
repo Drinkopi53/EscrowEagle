@@ -58,7 +58,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
   useEffect(() => {
     const interval = setInterval(() => {
       refetch();
-    }, 5000); // Refetch every 5 seconds to ensure timely updates
+    }, 10000); // Refetch every 10 seconds to ensure timely updates
     return () => clearInterval(interval);
   }, [refetch]);
   
@@ -67,9 +67,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
   }, [isAdminView, refetch]);
 
   useEffect(() => {
-    console.log("ClientDashboard: useEffect for fetchedBounties triggered.");
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
-      console.log("ClientDashboard: Fetched Bounties:", fetchedBounties);
       const formattedBounties: Bounty[] = fetchedBounties
         .filter(bounty => bounty && bounty.id !== undefined)
         .map((bounty: any) => ({
@@ -86,21 +84,16 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
       const filtered = formattedBounties.filter(bounty => bounty.status !== 1); // 1 is Paid
 
       setBounties(filtered);
-      console.log("ClientDashboard: Set Bounties state:", filtered);
 
       // Fetch claimants for each open bounty
       filtered.forEach(bounty => {
         if (bounty.status === 0) { // Only fetch for Open bounties
-          console.log(`ClientDashboard: Fetching claimants for bounty ID: ${bounty.id}`);
           fetchClaimants(bounty.id);
         }
       });
     }
   }, [fetchedBounties, isAdminView, refetch, address]);
 
-  useEffect(() => {
-    console.log("ClientDashboard: claimantsMap state updated:", claimantsMap);
-  }, [claimantsMap]);
 
   return (
     <main className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-6">

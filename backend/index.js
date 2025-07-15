@@ -40,8 +40,11 @@ const readDb = () => {
 const writeDb = (data) => {
   try {
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+    console.log('Successfully wrote data to db.json');
   } catch (error) {
     console.error("Error writing to db.json:", error);
+    // Re-throw the error to ensure it's caught by the main webhook handler's catch block
+    throw error; 
   }
 };
 
@@ -53,12 +56,14 @@ app.post('/api/webhook', (req, res) => {
 
     if (body.commits && Array.isArray(body.commits)) {
       const db = readDb();
+      console.log('Current db.json content (before processing):', JSON.stringify(db, null, 2));
       
       body.commits.forEach(commit => {
         const bountyIdMatch = commit.message.match(/#(\d+)/);
         if (bountyIdMatch) {
           const bountyId = bountyIdMatch[1];
           const githubUser = commit.author.username || commit.author.name;
+          console.log(`Processing commit: Bounty ID - ${bountyId}, GitHub User - ${githubUser}`);
 
           // --- New Logic: Map GitHub user to Wallet Address ---
           const userMappingPath = path.join(__dirname, 'user-mapping.json');
@@ -66,6 +71,7 @@ app.post('/api/webhook', (req, res) => {
           if (fs.existsSync(userMappingPath)) {
             const userMapping = JSON.parse(fs.readFileSync(userMappingPath, 'utf-8'));
             walletAddress = userMapping[githubUser];
+            console.log(`Wallet address for ${githubUser}: ${walletAddress}`);
           }
           // -----------------------------------------------------
 
@@ -78,18 +84,25 @@ app.post('/api/webhook', (req, res) => {
               commitId: commit.id,
               timestamp: commit.timestamp
             };
+            console.log('New commit object to be added:', JSON.stringify(newCommit, null, 2));
 
             if (!Array.isArray(db.commits)) {
               db.commits = [];
             }
             db.commits.push(newCommit);
+            console.log('db.commits after push:', JSON.stringify(db.commits, null, 2));
           } else {
             console.log(`Commit from user ${githubUser} ignored: no wallet mapping found.`);
           }
+        } else {
+          console.log(`Commit message "${commit.message}" does not contain a bounty ID in #ID format.`);
         }
       });
 
       writeDb(db);
+      console.log('writeDb called with updated data.');
+    } else {
+      console.log('Webhook payload does not contain commits array or it is empty.');
     }
 
     res.status(200).send('Payload received');

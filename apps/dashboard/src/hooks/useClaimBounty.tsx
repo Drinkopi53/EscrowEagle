@@ -30,7 +30,6 @@ export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResul
 
   useEffect(() => {
     if (isTxSuccess) {
-      console.log("Transaction successful, invalidating queries and calling onClaimSuccess.");
       queryClient.invalidateQueries({ 
         queryKey: [
           'readContract',
@@ -49,7 +48,7 @@ export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResul
 
   const claimBounty = (bountyId: string) => {
     if (!address) {
-      console.error("Wallet not connected. Cannot claim bounty.");
+      // No console.error here, as the UI will show an error message
       return;
     }
     writeContract({
@@ -62,7 +61,7 @@ export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResul
 
   const cancelClaim = (bountyId: string) => {
     if (!address) {
-      console.error("Wallet not connected. Cannot cancel claim.");
+      // No console.error here, as the UI will show an error message
       return;
     }
     writeContract({
@@ -79,6 +78,6 @@ export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResul
     isLoading: isPending || isTxLoading,
     isSuccess: isTxSuccess,
     isError,
-    error,
+    error: error ? new Error("Transaction failed. Please check your wallet and try again.") : null,
   };
 };

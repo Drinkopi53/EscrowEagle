@@ -31,26 +31,14 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
   const statusBadgeClass = getStatusBadgeClass(status);
   const { claimBounty, cancelClaim, isLoading: isClaiming, isSuccess: isClaimSuccess, isError: isClaimError, error: claimError } = useClaimBounty(onClaimSuccess);
 
-  const [isClaimedByUser, setIsClaimedByUser] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClaimedByUser(claimants.some(c => c.toLowerCase() === address?.toLowerCase()));
-  }, [claimants, address]);
-
   const handleClaim = () => {
     claimBounty(id);
-    setIsClaimedByUser(true);
-  };
-
-  const handleCancelClaim = () => {
-    cancelClaim(id);
-    setIsClaimedByUser(false);
   };
 
   return (
     <div className="bg-cozy-card shadow-md rounded-lg p-6 mb-4 flex flex-col border border-cozy">
       <h3 className="text-xl font-semibold text-cozy-main mb-2">{title}</h3>
-      <p className="text-cozy-main text-sm mb-2">{description}</p> {/* Display description */}
+      <p className="text-cozy-main text-sm mb-2">{description}</p>
       <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="link-cozy mb-4 truncate">
         {githubUrl}
       </a>
@@ -64,36 +52,24 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
       <a href={`/bounty/${id}`} className="mt-4 inline-block link-cozy font-medium">
         View Details
       </a>
+      {status === 'Open' && claimants.length > 0 && (
+        <p className="text-sm text-cozy-main mt-2">Claimants: {claimants.length}</p>
+      )}
       {!isAdminView && status === 'Open' && (
         <div className="mt-4">
-          {isClaimedByUser ? (
-            <button
-              onClick={handleCancelClaim}
-              disabled={isClaiming}
-              className="w-full btn-cozy btn-cozy-error"
-            >
-              {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
-            </button>
-          ) : (
-            <button
-              onClick={handleClaim}
-              disabled={isClaiming}
-              className="w-full btn-cozy btn-cozy-secondary" // Using secondary for claim as primary is for main page actions or positive final actions
-            >
-              {isClaiming ? 'Submitting Claim...' : 'Claim Bounty'}
-            </button>
-          )}
+          <button
+            onClick={handleClaim}
+            disabled={isClaiming || claimants.some(c => c.toLowerCase() === address?.toLowerCase())}
+            className="w-full btn-cozy btn-cozy-secondary"
+          >
+            {isClaiming ? 'Submitting Claim...' : claimants.some(c => c.toLowerCase() === address?.toLowerCase()) ? 'Claimed' : 'Claim Bounty'}
+          </button>
           {isClaimSuccess && (
             <p className="text-sm mt-2" style={{color: 'var(--cozy-status-paid-text)'}}>Action successful!</p>
           )}
           {isClaimError && (
-            <p className="text-sm mt-2" style={{color: 'var(--cozy-status-error-text)'}}>Error: {claimError?.message}</p>
+            <p className="text-sm mt-2" style={{color: 'var(--cozy-status-error-text)'}}>{claimError?.message}</p>
           )}
-        </div>
-      )}
-      {isAdminView && status === 'Open' && claimants.length > 0 && (
-        <div className="mt-4 border-t border-cozy pt-4">
-          <h4 className="font-semibold text-cozy-main">Claimants ({claimants.length})</h4>
         </div>
       )}
     </div>
