@@ -29,7 +29,7 @@ def main():
     # 2. Test create bounty speed with Selenium
     print("Testing create bounty speed...")
     start_time = time.time()
-    driver.get("http://localhost:3000/admin") # Make sure your development server is running
+    driver.get("http://localhost:3000") # Make sure your development server is running
     try:
         # Wait for the "Create Bounty" button to be clickable
         create_bounty_button = WebDriverWait(driver, 10).until(
