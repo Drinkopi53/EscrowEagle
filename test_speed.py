@@ -3,6 +3,7 @@ import subprocess
 import json
 from web3 import Web3
 import os
+import threading
 
 # --- Configuration ---
 CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
@@ -481,7 +482,7 @@ def main():
         results["Frontend_Compilation"] = {"Latency": latency, "Speed": speed}
 
         print("Starting hardhat server (npm start)...")
-        server_process = subprocess.Popen("npm start", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        server_process = subprocess.Popen("npm start", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd="src/")
         print("Waiting for Hardhat server to be available...")
 
         w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL))
