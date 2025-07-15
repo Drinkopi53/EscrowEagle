@@ -879,7 +879,21 @@ export default function DebugInfo() {
 
 ## Pengembangan dan Testing
 
-### 1. Development Environment
+### 1. Performance Testing
+
+Untuk menjalankan performance test, gunakan skrip berikut:
+
+```bash
+./run_performance_test.sh
+```
+
+Skrip ini akan melakukan hal berikut:
+1.  Menginstal semua dependensi yang diperlukan (Python, frontend, dan backend).
+2.  Memulai server backend dan frontend.
+3.  Menjalankan skrip `performance_test.py` untuk mengukur berbagai metrik kinerja.
+4.  Menghentikan server secara otomatis setelah pengujian selesai.
+
+### 2. Development Environment
 
 #### A. File Structure untuk Development
 ```
