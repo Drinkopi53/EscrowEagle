@@ -1,0 +1,23 @@
+(await bonusEscrow.bounties(0)).status
+await bonusEscrow.connect(signers[1]).claimBounty(0)
+const bonusEscrow = await BonusEscrow.attach("0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65")
+const BonusEscrow = await ethers.getContractFactory("BonusEscrow")
+const signers = await ethers.getSigners()
+await bonusEscrow.connect(signers[1]).claimBounty(0)
+const bonusEscrow = await BonusEscrow.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+const BonusEscrow = await ethers.getContractFactory("BonusEscrow")
+const signers = await ethers.getSigners()
+await bonusEscrow.connect(signers[1]).claimBounty(0)
+const bonusEscrow = await BonusEscrow.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+const BonusEscrow = await ethers.getContractFactory("BonusEscrow")
+const signers = await ethers.getSigners()
+await bonusEscrow.connect(signers[1]).claimBounty(0)
+const bonusEscrow = await BonusEscrow.attach("0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65")
+const BonusEscrow = await ethers.getContractFactory
+const signers = await ethers.getSigners()
+await bonusEscrow.connect(signers[1]).claimBounty(0)
+const signers = await ethers.getSigners()
+const bonusEscrow = await ethers.getContract("BonusEscrow")
+signers[1];
+signers[1]
+bonusEscrow.connect(signers[1]).claimBounty(0)

@@ -31,7 +31,6 @@ export const useAdminActions = (onSuccess?: () => void): UseAdminActionsResult =
 
   useEffect(() => {
     if (isTxSuccess) {
-      console.log("Admin action successful, invalidating queries.");
       queryClient.invalidateQueries({ 
         queryKey: [
           'readContract',
