@@ -515,50 +515,84 @@ web3
 
 ## Konfigurasi dan Setup
 
-### 1. Prerequisites
-- Node.js 18+ atau 20+
-- Python 3.9+
-- MetaMask browser extension
-- Git
+### 1. Prasyarat Sistem
+Pastikan sistem Anda memenuhi prasyarat berikut sebelum memulai:
+- **Node.js**: Versi 18.x atau 20.x (disarankan menggunakan `nvm` atau `fnm` untuk manajemen versi)
+- **Python**: Versi 3.9+ (disarankan menggunakan `pyenv` atau `conda` untuk manajemen versi)
+- **MetaMask**: Ekstensi browser MetaMask terinstal
+- **Git**: Sistem kontrol versi Git terinstal
 
-### 2. Installation Steps
+### 2. Langkah-langkah Instalasi
 
-#### A. Clone dan Setup Root
-```bash
-git clone <repository-url>
-cd EscrowEagle
-npm install
-```
+#### A. Clone Repositori dan Setup Root Proyek
+1.  **Clone repositori**:
+    ```bash
+    git clone https://github.com/your-repo/EscrowEagle.git # Ganti dengan URL repositori yang benar
+    ```
+2.  **Masuk ke direktori proyek**:
+    ```bash
+    cd EscrowEagle
+    ```
+3.  **Instal dependensi root**:
+    ```bash
+    npm install
+    ```
 
-#### B. Setup Smart Contract Environment
-```bash
-cd src
-npm install
-```
+#### B. Setup Lingkungan Smart Contract
+1.  **Masuk ke direktori `src`**:
+    ```bash
+    cd src
+    ```
+2.  **Instal dependensi Hardhat**:
+    ```bash
+    npm install
+    ```
+3.  **Kembali ke direktori root proyek**:
+    ```bash
+    cd ..
+    ```
 
 #### C. Setup Frontend Dashboard
-```bash
-cd apps/dashboard
-npm install
-```
+1.  **Masuk ke direktori `apps/dashboard`**:
+    ```bash
+    cd apps/dashboard
+    ```
+2.  **Instal dependensi Next.js**:
+    ```bash
+    npm install
+    ```
+3.  **Kembali ke direktori root proyek**:
+    ```bash
+    cd ../..
+    ```
 
 #### D. Setup Python Oracle
-```bash
-cd python_workspace
-python -m venv venv
+1.  **Masuk ke direktori `python_workspace`**:
+    ```bash
+    cd python_workspace
+    ```
+2.  **Buat dan aktifkan virtual environment**:
+    ```bash
+    python -m venv venv
+    # Untuk Windows:
+    .\venv\Scripts\activate
+    # Untuk macOS/Linux:
+    source venv/bin/activate
+    ```
+3.  **Instal dependensi Python**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  **Kembali ke direktori root proyek**:
+    ```bash
+    deactivate # Nonaktifkan virtual environment
+    cd ..
+    ```
 
-# Windows
-.\venv\Scripts\activate
+### 3. Konfigurasi Hardhat
+File konfigurasi Hardhat (`src/hardhat.config.js`) dan helper (`src/helper-hardhat-config.js`) sudah dikonfigurasi untuk development lokal dengan Hardhat Network.
 
-# macOS/Linux
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 3. Hardhat Configuration
-
-#### hardhat.config.js
+#### `src/hardhat.config.js`
 ```javascript
 require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-deploy");
@@ -567,7 +601,8 @@ module.exports = {
   solidity: "0.8.24",
   networks: {
     hardhat: {
-      // Hardhat Network settings
+      // Hardhat Network settings (default: chainId 31337)
+      // Accounts pre-funded with 10000 ETH
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -576,13 +611,13 @@ module.exports = {
   },
   namedAccounts: {
     deployer: {
-      default: 0, // First account as deployer
+      default: 0, // Akun pertama dari Hardhat Network akan digunakan sebagai deployer (owner contract)
     },
   },
 };
 ```
 
-#### helper-hardhat-config.js
+#### `src/helper-hardhat-config.js`
 ```javascript
 const developmentChains = ["hardhat", "localhost"];
 const networkConfig = {
@@ -597,51 +632,126 @@ module.exports = {
 };
 ```
 
-### 4. MetaMask Setup
+### 4. Setup MetaMask
+Untuk berinteraksi dengan Hardhat Network lokal, Anda perlu mengkonfigurasi MetaMask:
 
-#### Network Configuration
-- **Network Name**: Hardhat Local
-- **RPC URL**: http://localhost:8545
-- **Chain ID**: 31337
-- **Currency Symbol**: ETH
+#### A. Tambahkan Jaringan Hardhat Lokal
+1.  Buka ekstensi MetaMask Anda.
+2.  Klik pada dropdown jaringan di bagian atas dan pilih "Add network".
+3.  Pilih "Add a network manually".
+4.  Isi detail berikut:
+    -   **Network Name**: `Hardhat Local`
+    -   **New RPC URL**: `http://localhost:8545`
+    -   **Chain ID**: `31337`
+    -   **Currency Symbol**: `ETH`
+    -   **Block Explorer URL**: (Opsional, biarkan kosong)
+5.  Klik "Save".
 
-#### Development Account Import
-- **Private Key**: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- **Address**: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-- **Balance**: ~10000 ETH
+#### B. Impor Akun Pengembangan
+Hardhat Network menyediakan daftar akun pengembangan yang sudah didanai. Anda perlu mengimpor salah satu akun ini ke MetaMask untuk berinteraksi sebagai owner atau client.
+
+**Akun Owner (Deployer)**:
+-   **Private Key**: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+-   **Address**: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+-   **Balance Awal**: ~10000 ETH
+
+**Langkah Impor**:
+1.  Buka MetaMask dan pastikan Anda berada di jaringan "Hardhat Local".
+2.  Klik ikon akun Anda di kanan atas dan pilih "Import account".
+3.  Pilih "Private Key" sebagai tipe impor.
+4.  Masukkan Private Key di atas dan klik "Import".
+
+---
+
+## Cara Menjalankan Proyek
+
+Untuk menjalankan seluruh proyek EscrowFlow secara lokal, ikuti langkah-langkah berikut. Setiap komponen harus dijalankan di terminal terpisah.
+
+### 1. Start Hardhat Local Blockchain
+Buka terminal baru dan jalankan perintah berikut dari direktori `src`:
+```bash
+cd src
+npm run start:hardhat
+```
+Ini akan memulai node blockchain lokal Hardhat. Biarkan terminal ini tetap berjalan.
+
+### 2. Deploy Smart Contract
+Buka terminal baru lainnya dan jalankan perintah berikut dari direktori `src`:
+```bash
+cd src
+npm run deploy:contract
+```
+Perintah ini akan mengkompilasi dan mendeploy smart contract `BonusEscrow.sol` ke Hardhat Network yang sedang berjalan. Setelah deployment berhasil, alamat kontrak akan disimpan di `apps/dashboard/src/contracts/deployed_contract_address.json`.
+
+### 3. Start Frontend Dashboard
+Buka terminal baru dan jalankan perintah berikut dari direktori `apps/dashboard`:
+```bash
+cd apps/dashboard
+npm run dev
+```
+Ini akan memulai aplikasi frontend Next.js. Setelah berhasil, Anda dapat mengakses dashboard di browser Anda, biasanya di `http://localhost:3000`.
+
+### 4. Jalankan Python Oracle (Opsional)
+Buka terminal baru dan jalankan perintah berikut dari direktori `python_workspace`:
+```bash
+cd python_workspace
+# Aktifkan virtual environment
+# Untuk Windows:
+.\venv\Scripts\activate
+# Untuk macOS/Linux:
+source venv/bin/activate
+
+# Jalankan script oracle
+python src/main.py
+```
+Oracle ini akan membaca dummy events dan secara otomatis memicu fungsi `approveBounty` pada smart contract. Ini berguna untuk simulasi alur kerja otomatis.
+
+### Diagram Alur Eksekusi
+```mermaid
+graph TD
+    A[Start Hardhat Node] --> B[Deploy Smart Contract]
+    B --> C[Start Frontend Dashboard]
+    B --> D[Run Python Oracle (Opsional)]
+    C -- Interaksi Pengguna --> E[Admin Workflow]
+    C -- Interaksi Pengguna --> F[Client Workflow]
+    D -- Otomasi --> G[Oracle Workflow]
+```
 
 ---
 
 ## Workflow Penggunaan
 
+Bagian ini menjelaskan alur kerja penggunaan sistem EscrowFlow dari perspektif yang berbeda.
+
 ### 1. Development Workflow
+Bagian ini sudah dijelaskan secara rinci di bagian "Cara Menjalankan Proyek" di atas.
 
-#### A. Start Local Blockchain
-```bash
-# Terminal 1 - Start Hardhat node
-npm run start:hardhat
-```
+### 2. User Workflow
 
-#### B. Deploy Smart Contract
-```bash
-# Terminal 2 - Deploy contract
-npm run deploy:contract
-```
+#### A. Admin Workflow
+1.  **Connect Wallet**: Pastikan MetaMask terhubung ke jaringan `Hardhat Local` dengan akun owner (yang Anda impor sebelumnya).
+2.  **Create Bounty**:
+    -   Di dashboard, beralihlah ke tampilan Admin (jika ada tombol switch).
+    -   Gunakan form untuk membuat bounty baru dengan mengisi judul, deskripsi, URL GitHub, dan jumlah reward dalam ETH.
+    -   Konfirmasi transaksi di MetaMask.
+3.  **Monitor Bounties**: Lihat daftar bounty yang telah Anda buat di Admin Dashboard.
+4.  **Approve Bounty**:
+    -   Setelah bounty diklaim oleh client dan solusi disubmit, Anda dapat meninjau solusi tersebut.
+    -   Klik tombol "Approve" pada bounty yang relevan untuk mentransfer reward ke claimant.
+    -   Konfirmasi transaksi di MetaMask.
 
-#### C. Start Frontend Dashboard
-```bash
-# Terminal 3 - Start Next.js app
-cd apps/dashboard
-npm run dev
-```
+#### B. Client Workflow
+1.  **Connect Wallet**: Terhubunglah ke jaringan `Hardhat Local` dengan akun non-owner (Anda bisa mengimpor akun pengembangan lain dari Hardhat Network).
+2.  **Browse Bounties**: Lihat daftar bounty yang tersedia di Client Dashboard.
+3.  **Claim Bounty**: Klik tombol "Claim" pada bounty yang ingin Anda kerjakan. Konfirmasi transaksi di MetaMask.
+4.  **Submit Solution**: Setelah mengklaim bounty, kerjakan tugas sesuai deskripsi. Setelah selesai, submit URL solusi (misalnya, link GitHub pull request) melalui form yang tersedia.
+5.  **Wait for Approval**: Tunggu admin (akun owner) untuk meninjau dan menyetujui solusi Anda. Setelah disetujui, reward akan otomatis ditransfer ke wallet Anda.
 
-#### D. Run Python Oracle (Optional)
-```bash
-# Terminal 4 - Run oracle
-cd python_workspace
-source venv/bin/activate  # or .\venv\Scripts\activate on Windows
-python src/main.py
-```
+### 3. Oracle Workflow
+1.  **Monitor Events**: Python Oracle akan secara otomatis memantau file `dummy-events.json` (atau sumber event eksternal lainnya di implementasi nyata).
+2.  **Process PR_MERGED**: Ketika oracle mendeteksi event `PR_MERGED` yang sesuai dengan bounty yang diklaim, ia akan memprosesnya.
+3.  **Auto Approve**: Oracle akan memanggil fungsi `approveBounty` pada smart contract secara otomatis.
+4.  **Transfer Reward**: Smart contract akan mentransfer ETH reward ke wallet pemenang yang ditentukan dalam event.
 
 ### 2. User Workflow
 
