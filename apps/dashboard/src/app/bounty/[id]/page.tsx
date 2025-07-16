@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useClaimBounty } from '@/hooks/useClaimBounty';
 import { useParams, useRouter } from 'next/navigation';
 import { useReadContract, useWriteContract, useAccount } from 'wagmi';
 import { abi as BonusEscrowABI } from '../../../../../../src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json';
