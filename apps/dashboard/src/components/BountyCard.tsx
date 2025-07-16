@@ -35,6 +35,12 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
     claimBounty(id);
   };
 
+  const handleCancelClaim = () => {
+    cancelClaim(id);
+  };
+
+  const hasClaimed = claimants.some(c => c.toLowerCase() === address?.toLowerCase());
+
   return (
     <div className="bg-cozy-card shadow-md rounded-lg p-6 mb-4 flex flex-col border border-cozy">
       <h3 className="text-xl font-semibold text-cozy-main mb-2">{title}</h3>
@@ -57,13 +63,31 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
       )}
       {!isAdminView && status === 'Open' && (
         <div className="mt-4">
-          <button
-            onClick={handleClaim}
-            disabled={isClaiming || claimants.some(c => c.toLowerCase() === address?.toLowerCase())}
-            className="w-full btn-cozy btn-cozy-secondary"
-          >
-            {isClaiming ? 'Submitting Claim...' : claimants.some(c => c.toLowerCase() === address?.toLowerCase()) ? 'Claimed' : 'Claim Bounty'}
-          </button>
+          {hasClaimed ? (
+            <div className="flex space-x-2">
+              <button
+                disabled={true}
+                className="w-full btn-cozy btn-cozy-disabled"
+              >
+                Claimed
+              </button>
+              <button
+                onClick={handleCancelClaim}
+                disabled={isClaiming}
+                className="w-full btn-cozy btn-cozy-danger"
+              >
+                {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleClaim}
+              disabled={isClaiming}
+              className="w-full btn-cozy btn-cozy-secondary"
+            >
+              {isClaiming ? 'Submitting Claim...' : 'Claim Bounty'}
+            </button>
+          )}
           {isClaimSuccess && (
             <p className="text-sm mt-2" style={{color: 'var(--cozy-status-paid-text)'}}>Action successful!</p>
           )}
