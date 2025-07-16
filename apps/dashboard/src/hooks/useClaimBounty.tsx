@@ -30,15 +30,11 @@ export const useClaimBounty = (onClaimSuccess?: () => void): UseClaimBountyResul
 
   useEffect(() => {
     if (isTxSuccess) {
-      queryClient.invalidateQueries({ 
-        queryKey: [
-          'readContract',
-          {
-            address: deployedContractAddress.contractAddress,
-            functionName: 'getAllBounties',
-            chainId,
-          },
-        ]
+      queryClient.invalidateQueries({
+        queryKey: ['readContract', { address: deployedContractAddress.contractAddress, functionName: 'getAllBounties', chainId }]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['readContract', { address: deployedContractAddress.contractAddress, functionName: 'getClaimants', chainId }]
       });
       if (onClaimSuccess) {
         onClaimSuccess();
