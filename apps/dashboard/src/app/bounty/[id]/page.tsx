@@ -398,24 +398,6 @@ const BountyDetailPage: React.FC = () => {
 
           {/* Action Buttons (removed Complete Bounty button) */}
           <div className="flex flex-wrap gap-4">
-            {currentBounty.status === 0 && !claimants?.includes(address as string) && (
-              <button
-                onClick={() => claimBounty(bountyId)}
-                disabled={isClaiming}
-                className="btn-cozy btn-cozy-primary"
-              >
-                {isClaiming ? 'Claiming...' : 'Claim Bounty'}
-              </button>
-            )}
-            {currentBounty.status === 0 && claimants?.includes(address as string) && (
-              <button
-                onClick={() => cancelClaim(bountyId)}
-                disabled={isClaiming}
-                className="btn-cozy btn-cozy-error"
-              >
-                {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
-              </button>
-            )}
           </div>
         </div>
       </div>
