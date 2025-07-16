@@ -208,6 +208,11 @@ const BountyDetailPage: React.FC = () => {
   // At this point, we know currentBounty is not null due to early returns above
   const statusBadgeClass = getStatusBadgeClass(statusMap[currentBounty!.status]);
   const claimants = claimantsData as string[] | undefined;
+  const isClaimedByUser = claimants?.includes(address as string);
+
+  console.log('Address:', address);
+  console.log('Claimants:', claimants);
+  console.log('Is Claimed By User:', isClaimedByUser);
 
   return (
     <div className="min-h-screen bg-cozy-main py-8 px-4">
@@ -398,6 +403,24 @@ const BountyDetailPage: React.FC = () => {
 
           {/* Action Buttons (removed Complete Bounty button) */}
           <div className="flex flex-wrap gap-4">
+            {currentBounty.status === 0 && !isClaimedByUser && (
+              <button
+                onClick={() => claimBounty(bountyId)}
+                disabled={isClaiming}
+                className="btn-cozy btn-cozy-primary"
+              >
+                {isClaiming ? 'Claiming...' : 'Claim Bounty'}
+              </button>
+            )}
+            {currentBounty.status === 0 && isClaimedByUser && (
+              <button
+                onClick={() => cancelClaim(bountyId)}
+                disabled={isClaiming}
+                className="btn-cozy btn-cozy-error"
+              >
+                {isClaiming ? 'Cancelling...' : 'Cancel Claim'}
+              </button>
+            )}
           </div>
         </div>
       </div>
