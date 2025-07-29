@@ -40,6 +40,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
   });
 
   const fetchClaimants = async (bountyId: string) => {
+    console.log(`ClientDashboard: fetchClaimants called for bountyId: ${bountyId}`); // Added log
     try {
       const data = await readContract(wagmiConfig, {
         address: deployedContractAddress.contractAddress as `0x${string}`,
@@ -47,6 +48,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
         functionName: 'getClaimants',
         args: [BigInt(bountyId)],
       });
+      console.log(`ClientDashboard: claimants data for ${bountyId}:`, data); // Added log
       if (Array.isArray(data)) {
         setClaimantsMap(prev => ({ ...prev, [bountyId]: data as string[] }));
       }
@@ -67,6 +69,8 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
   }, [isAdminView, refetch]);
 
   useEffect(() => {
+    console.log('ClientDashboard: fetchedBounties:', fetchedBounties); // Added log
+    console.log('ClientDashboard: isBountiesLoading:', isBountiesLoading); // Added log for loading state
     if (fetchedBounties && Array.isArray(fetchedBounties)) {
       const formattedBounties: Bounty[] = fetchedBounties
         .filter(bounty => bounty && bounty.id !== undefined)
@@ -82,6 +86,7 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
       
       // Clients should see all non-paid bounties
       const filtered = formattedBounties.filter(bounty => bounty.status !== 1); // 1 is Paid
+      console.log('ClientDashboard: filtered bounties:', filtered); // Added log
 
       setBounties(filtered);
 
@@ -93,6 +98,14 @@ export default function ClientDashboard({ isAdminView }: { isAdminView: boolean 
       });
     }
   }, [fetchedBounties, isAdminView, refetch, address]);
+
+  // Effect to re-render BountyCard when claimantsMap updates
+  useEffect(() => {
+    // This effect will run whenever claimantsMap is updated.
+    // It might help to force a re-render of BountyCard with updated claimants.
+    // We are essentially re-setting the bounties state to trigger a re-render.
+    setBounties(prevBounties => [...prevBounties]);
+  }, [claimantsMap]);
 
 
   return (

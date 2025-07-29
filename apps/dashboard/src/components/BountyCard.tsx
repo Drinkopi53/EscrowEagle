@@ -33,6 +33,11 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
 
   const handleClaim = () => {
     claimBounty(id);
+    console.log('BountyCard: handleClaim called, refetching...'); // Added log
+  };
+
+  const handleCancelClaim = (bountyId: string) => {
+    cancelClaim(bountyId);
   };
 
   return (
@@ -52,18 +57,32 @@ const BountyCard: React.FC<BountyCardProps> = ({ id, title, description, githubU
       <a href={`/bounty/${id}`} className="mt-4 inline-block link-cozy font-medium">
         View Details
       </a>
-      {status === 'Open' && claimants.length > 0 && (
-        <p className="text-sm text-cozy-main mt-2">Claimants: {claimants.length}</p>
-      )}
       {!isAdminView && status === 'Open' && (
         <div className="mt-4">
-          <button
-            onClick={handleClaim}
-            disabled={isClaiming || claimants.some(c => c.toLowerCase() === address?.toLowerCase())}
-            className="w-full btn-cozy btn-cozy-secondary"
-          >
-            {isClaiming ? 'Submitting Claim...' : claimants.some(c => c.toLowerCase() === address?.toLowerCase()) ? 'Claimed' : 'Claim Bounty'}
-          </button>
+          {(() => {
+            const userHasClaimed = claimants.some(c => c.toLowerCase() === address?.toLowerCase());
+            if (userHasClaimed) {
+              return (
+                <button
+                  onClick={() => handleCancelClaim(id)}
+                  disabled={isClaiming}
+                  className="w-full btn-cozy btn-cozy-error mt-2" // Using error class for cancel
+                >
+                  {isClaiming ? 'Cancelling Claim...' : 'Cancel Claim'}
+                </button>
+              );
+            } else {
+              return (
+                <button
+                  onClick={handleClaim}
+                  disabled={isClaiming}
+                  className="w-full btn-cozy btn-cozy-secondary"
+                >
+                  {isClaiming ? 'Submitting Claim...' : 'Claim Bounty'}
+                </button>
+              );
+            }
+          })()}
           {isClaimSuccess && (
             <p className="text-sm mt-2" style={{color: 'var(--cozy-status-paid-text)'}}>Action successful!</p>
           )}
