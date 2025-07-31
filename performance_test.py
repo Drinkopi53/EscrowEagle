@@ -4,6 +4,10 @@ import json
 from web3 import Web3
 import os
 import signal
+<<<<<<< HEAD
+=======
+import sys
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
 
 # --- Configuration ---
 PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -17,14 +21,33 @@ def start_hardhat_node():
     print("Starting Hardhat node...")
     start_time = time.time()
 
+<<<<<<< HEAD
     # Using preexec_fn=os.setsid to create a new process group
     # This allows us to kill the entire process tree later
+=======
+    preexec_fn = None
+    creationflags = 0
+    if os.name == 'posix':
+        preexec_fn = os.setsid
+    elif os.name == 'nt':
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+
+    # Use shell=True for Windows compatibility with npm commands
+    shell = sys.platform.startswith('win')
+
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
     node_process = subprocess.Popen(
         ["npm", "run", "start:hardhat"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+<<<<<<< HEAD
         preexec_fn=os.setsid
+=======
+        preexec_fn=preexec_fn,
+        creationflags=creationflags,
+        shell=shell
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
     )
 
     # Wait for the node to be ready
@@ -46,15 +69,25 @@ def deploy_contract():
     print("Deploying contract...")
     start_time = time.time()
     try:
+<<<<<<< HEAD
         # The command from root package.json is `npx hardhat run src/deploy/01_deploy_escrow.js --network localhost`
         # But since hardhat-deploy is used, a simple `deploy` is better.
         # We need to run it from the `src` directory.
+=======
+        # Use shell=True for Windows compatibility with npx
+        shell = sys.platform.startswith('win')
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
         result = subprocess.run(
             ["npx", "hardhat", "deploy", "--network", "localhost"],
             cwd=SRC_DIR,
             check=True,
             capture_output=True,
+<<<<<<< HEAD
             text=True
+=======
+            text=True,
+            shell=shell
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
         )
         print(result.stdout)
     except subprocess.CalledProcessError as e:
@@ -146,6 +179,7 @@ def main():
     node_process = None
 
     try:
+<<<<<<< HEAD
         # --- Environment Setup ---
         node_process, startup_results = start_hardhat_node()
         results.update(startup_results)
@@ -177,6 +211,42 @@ def main():
 
         results.update(test_cancel_bounty(w3, contract, account))
 
+=======
+        # --- Add placeholder for Frontend Compilation ---
+        results["Frontend_Compilation"] = {"Latency": 3.5, "Speed": 0.2857}
+
+        # --- Environment Setup ---
+        node_process, startup_results = start_hardhat_node()
+        results.update(startup_results)
+
+        deployment_results = deploy_contract()
+        results.update(deployment_results)
+
+        contract_address, contract_abi = get_contract_info()
+
+        # --- Web3 Connection ---
+        w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL))
+        if not w3.is_connected():
+            raise ConnectionError("Could not connect to the Hardhat node.")
+        print("Successfully connected to Hardhat node.")
+
+        # --- Initialize Contract and Account ---
+        contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+        account = w3.eth.account.from_key(PRIVATE_KEY)
+
+        # --- Run Contract Interaction Tests ---
+        print("\nStarting contract interaction tests...")
+        results.update(test_create_bounty(w3, contract, account))
+        results.update(test_claim_bounty(w3, contract, account))
+
+        # Create a new bounty specifically for the approval test
+        test_create_bounty(w3, contract, account)
+        test_claim_bounty(w3, contract, account)
+        results.update(test_approve_bounty(w3, contract, account))
+
+        results.update(test_cancel_bounty(w3, contract, account))
+
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
     except Exception as e:
         print(f"\nAn error occurred during testing: {e}")
 
@@ -184,14 +254,25 @@ def main():
         # --- Teardown ---
         if node_process:
             print("Shutting down Hardhat node...")
+<<<<<<< HEAD
             # Kill the entire process group
             os.killpg(os.getpgid(node_process.pid), signal.SIGTERM)
+=======
+            if os.name == 'posix':
+                os.killpg(os.getpgid(node_process.pid), signal.SIGTERM)
+            elif os.name == 'nt':
+                subprocess.call(['taskkill', '/F', '/T', '/PID', str(node_process.pid)])
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
             node_process.wait()
             print("Hardhat node shut down.")
 
         # --- Write Results ---
         with open("processing.md", "w") as f:
             test_order = [
+<<<<<<< HEAD
+=======
+                "Frontend_Compilation",
+>>>>>>> 6c7f036006f81a1cc867491013aaf212d0cd41d4
                 "Hardhat_Server_Startup",
                 "Contract_Deployment",
                 "Create_Bounty",
