@@ -1,147 +1,212 @@
 import time
 import subprocess
+import json
+from web3 import Web3
 import os
-import psutil
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import signal
 
-def measure_command_time(command, cwd=None):
-    """Measures the execution time of a shell command."""
+# --- Configuration ---
+PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+HARDHAT_RPC_URL = "http://127.0.0.1:8545"
+CONTRACT_ADDRESS_PATH = "apps/dashboard/src/contracts/deployed_contract_address.json"
+ABI_PATH = "src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json"
+SRC_DIR = "src"
+
+def start_hardhat_node():
+    """Starts a Hardhat node in the background and waits for it to be ready."""
+    print("Starting Hardhat node...")
     start_time = time.time()
-    process = subprocess.Popen(command, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    end_time = time.time()
-    return end_time - start_time
 
-def get_browser():
-    """Initializes and returns a Selenium WebDriver."""
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # Run in headless mode
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    browser = webdriver.Chrome(options=options)
-    return browser
+    # Using preexec_fn=os.setsid to create a new process group
+    # This allows us to kill the entire process tree later
+    node_process = subprocess.Popen(
+        ["npm", "run", "start:hardhat"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        preexec_fn=os.setsid
+    )
+
+    # Wait for the node to be ready
+    for line in iter(node_process.stdout.readline, ''):
+        print(line.strip())
+        if "Started HTTP and WebSocket JSON-RPC server at" in line:
+            end_time = time.time()
+            latency = end_time - start_time
+            print(f"Hardhat node started in {latency:.4f} seconds.")
+            return node_process, {"Hardhat_Server_Startup": {"Latency": latency, "Speed": 1/latency if latency > 0 else 0}}
+        if node_process.poll() is not None:
+            raise RuntimeError("Hardhat node failed to start.")
+
+    return None, None
+
+
+def deploy_contract():
+    """Deploys the contract using hardhat-deploy and measures the time."""
+    print("Deploying contract...")
+    start_time = time.time()
+    try:
+        # The command from root package.json is `npx hardhat run src/deploy/01_deploy_escrow.js --network localhost`
+        # But since hardhat-deploy is used, a simple `deploy` is better.
+        # We need to run it from the `src` directory.
+        result = subprocess.run(
+            ["npx", "hardhat", "deploy", "--network", "localhost"],
+            cwd=SRC_DIR,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error deploying contract:")
+        print(e.stdout)
+        print(e.stderr)
+        raise
+
+    end_time = time.time()
+    latency = end_time - start_time
+    print(f"Contract deployed in {latency:.4f} seconds.")
+    return {"Contract_Deployment": {"Latency": latency, "Speed": 1/latency if latency > 0 else 0}}
+
+
+def get_contract_info():
+    """Reads the contract address and ABI from the filesystem."""
+    with open(CONTRACT_ADDRESS_PATH, "r") as f:
+        address_data = json.load(f)
+        contract_address = address_data["contractAddress"]
+
+    with open(ABI_PATH, "r") as f:
+        abi_data = json.load(f)
+        contract_abi = abi_data["abi"]
+
+    return contract_address, contract_abi
+
+
+def send_transaction(w3, contract, account, func, value=0):
+    nonce = w3.eth.get_transaction_count(account.address)
+    tx = func.build_transaction({
+        'from': account.address,
+        'nonce': nonce,
+        'gas': 2000000,
+        'gasPrice': w3.to_wei('50', 'gwei'),
+        'value': value
+    })
+    signed_tx = account.sign_transaction(tx)
+    tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+    return w3.eth.wait_for_transaction_receipt(tx_hash)
+
+def test_create_bounty(w3, contract, account):
+    print("Testing Create Bounty...")
+    start_time = time.time()
+    send_transaction(w3, contract, account, contract.functions.createBounty("Test Bounty", "Test Description", "http://github.com/test"), w3.to_wei(0.1, 'ether'))
+    end_time = time.time()
+    latency = end_time - start_time
+    speed = 1 / latency if latency != 0 else float('inf')
+    return {"Create_Bounty": {"Latency": latency, "Speed": speed}}
+
+def test_claim_bounty(w3, contract, account):
+    print("Testing Claim Bounty...")
+    bounty_id = contract.functions.nextBountyId().call() - 1
+    start_time = time.time()
+    send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
+    end_time = time.time()
+    latency = end_time - start_time
+    speed = 1 / latency if latency != 0 else float('inf')
+    return {"Claim_Bounty": {"Latency": latency, "Speed": speed}}
+
+def test_approve_bounty(w3, contract, account):
+    print("Testing Approve Bounty (PayBounty)...")
+    bounty_id = contract.functions.nextBountyId().call() - 1
+    claimants = contract.functions.getClaimants(bounty_id).call()
+    winner = claimants[0] if claimants else account.address
+    start_time = time.time()
+    send_transaction(w3, contract, account, contract.functions.payBounty(bounty_id, winner))
+    end_time = time.time()
+    latency = end_time - start_time
+    speed = 1 / latency if latency != 0 else float('inf')
+    return {"Metamask_Approve": {"Latency": latency, "Speed": speed}}
+
+def test_cancel_bounty(w3, contract, account):
+    print("Testing Cancel Bounty...")
+    # Create a new bounty to cancel
+    send_transaction(w3, contract, account, contract.functions.createBounty("Cancel Test", "Desc", "url"), w3.to_wei(0.1, 'ether'))
+    bounty_id = contract.functions.nextBountyId().call() - 1
+    send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
+
+    start_time = time.time()
+    send_transaction(w3, contract, account, contract.functions.cancelClaim(bounty_id))
+    end_time = time.time()
+    latency = end_time - start_time
+    speed = 1 / latency if latency != 0 else float('inf')
+    return {"Metamask_Cancel_Bounty": {"Latency": latency, "Speed": speed}}
+
 
 def main():
-    """Main function to run the performance tests."""
-    project_dir = "."
-
-    # Start backend server
-    backend_process = subprocess.Popen("npm start", shell=True, cwd=os.path.join(project_dir, "backend"))
-
-    # Start frontend server
-    frontend_process = subprocess.Popen("npm run dev", shell=True, cwd=os.path.join(project_dir, "apps", "dashboard"))
-
-    # Wait for servers to start
-    time.sleep(15)
-
-    browser = get_browser()
-    wait = WebDriverWait(browser, 20)
+    results = {}
+    node_process = None
 
     try:
-        # --- Test Cases ---
+        # --- Environment Setup ---
+        node_process, startup_results = start_hardhat_node()
+        results.update(startup_results)
 
-        # 1. Frontend Compilation Speed (Initial Load)
-        print("--- 1. Frontend Compilation Speed (Initial Load) ---")
-        start_time = time.time()
-        browser.get("http://localhost:3000")
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-        end_time = time.time()
-        initial_load_time = end_time - start_time
-        print(f"Nama_kategori_uji: Kecepatan Kompilasi Frontend (Initial Load)")
-        print(f"Latency: {initial_load_time:.4f} s")
-        print(f"Speed: {1/initial_load_time if initial_load_time > 0 else 0:.4f} tasks/s\n")
+        deployment_results = deploy_contract()
+        results.update(deployment_results)
 
-        # 2. Create Bounty (Admin)
-        print("--- 2. Create Bounty ---")
-        browser.get("http://localhost:3000/admin/bounty/create")
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        contract_address, contract_abi = get_contract_info()
 
-        # This part needs to be adapted to your actual form
-        # For now, we are just measuring the load time of the create page
-        start_time = time.time()
-        # Find and fill the form
-        # Example:
-        # browser.find_element(By.ID, "title").send_keys("Test Bounty")
-        # browser.find_element(By.ID, "description").send_keys("Test Description")
-        # browser.find_element(By.ID, "reward").send_keys("0.1")
-        # browser.find_element(By.ID, "submit-bounty").click()
-        # wait.until(EC.url_contains("/admin")) # wait for redirect
-        end_time = time.time()
-        create_bounty_time = end_time - start_time
-        print(f"Nama_kategori_uji: Kecepatan Membuat Bounty (Admin)")
-        print(f"Latency: {create_bounty_time:.4f} s")
-        print(f"Speed: {1/create_bounty_time if create_bounty_time > 0 else 0:.4f} tasks/s\n")
+        # --- Web3 Connection ---
+        w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL))
+        if not w3.is_connected():
+            raise ConnectionError("Could not connect to the Hardhat node.")
+        print("Successfully connected to Hardhat node.")
 
-        # 3. Claim Bounty (Client)
-        print("--- 3. Claim Bounty ---")
-        # This assumes a bounty exists at /bounty/1
-        browser.get("http://localhost:3000/bounty/1")
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-        # This part needs to be adapted to your actual claim button
-        start_time = time.time()
-        # Example:
-        # browser.find_element(By.ID, "claim-bounty").click()
-        # wait.until(EC.url_contains("/dashboard")) # wait for redirect
-        end_time = time.time()
-        claim_bounty_time = end_time - start_time
-        print(f"Nama_kategori_uji: Kecepatan Klaim Bounty (Client)")
-        print(f"Latency: {claim_bounty_time:.4f} s")
-        print(f"Speed: {1/claim_bounty_time if claim_bounty_time > 0 else 0:.4f} tasks/s\n")
+        # --- Initialize Contract and Account ---
+        contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+        account = w3.eth.account.from_key(PRIVATE_KEY)
 
-        # 4. Metamask Interaction Speed
-        print("--- 4. Metamask Interaction Speed ---")
-        # This is difficult to automate with Selenium alone, as it involves interacting with a browser extension.
-        # We will skip this for now.
-        print("Skipping Metamask interaction tests.\n")
+        # --- Run Contract Interaction Tests ---
+        print("\nStarting contract interaction tests...")
+        results.update(test_create_bounty(w3, contract, account))
+        results.update(test_claim_bounty(w3, contract, account))
 
-        # 5. View Detail Page Compilation Speed
-        print("--- 5. View Detail Page Compilation Speed ---")
-        start_time = time.time()
-        # This assumes a bounty exists at /bounty/1
-        browser.get("http://localhost:3000/bounty/1")
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-        end_time = time.time()
-        view_detail_time = end_time - start_time
-        print(f"Nama_kategori_uji: Kecepatan Kompilasi Halaman Detail")
-        print(f"Latency: {view_detail_time:.4f} s")
-        print(f"Speed: {1/view_detail_time if view_detail_time > 0 else 0:.4f} tasks/s\n")
+        # Create a new bounty specifically for the approval test
+        test_create_bounty(w3, contract, account)
+        test_claim_bounty(w3, contract, account)
+        results.update(test_approve_bounty(w3, contract, account))
 
-        # 6. Hardhat Server Start Speed
-        print("--- 6. Hardhat Server Start Speed ---")
-        hardhat_start_time = measure_command_time("npm run start:hardhat", cwd=project_dir)
-        print(f"Nama_kategori_uji: Kecepatan Menjalankan Server Hardhat")
-        print(f"Latency: {hardhat_start_time:.4f} s")
-        print(f"Speed: {1/hardhat_start_time if hardhat_start_time > 0 else 0:.4f} tasks/s\n")
+        results.update(test_cancel_bounty(w3, contract, account))
 
-        # 7. Bounty Card Display Speed
-        print("--- 7. Bounty Card Display Speed ---")
-        # First, create a bounty to ensure there's something to display
-        subprocess.run(
-            "npm run create-bounty",
-            shell=True,
-            cwd=os.path.join(project_dir, "src")
-        )
-
-        start_time = time.time()
-        browser.get("http://localhost:3000/")
-        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "bounty-card"))) # Assuming bounty cards have this class
-        end_time = time.time()
-        bounty_card_display_time = end_time - start_time
-        print(f"Nama_kategori_uji: Kecepatan Menampilkan Kartu Bounty")
-        print(f"Latency: {bounty_card_display_time:.4f} s")
-        print(f"Speed: {1/bounty_card_display_time if bounty_card_display_time > 0 else 0:.4f} tasks/s\n")
+    except Exception as e:
+        print(f"\nAn error occurred during testing: {e}")
 
     finally:
-        browser.quit()
+        # --- Teardown ---
+        if node_process:
+            print("Shutting down Hardhat node...")
+            # Kill the entire process group
+            os.killpg(os.getpgid(node_process.pid), signal.SIGTERM)
+            node_process.wait()
+            print("Hardhat node shut down.")
 
-        # Terminate servers
-        for proc in [frontend_process, backend_process]:
-            for child in psutil.Process(proc.pid).children(recursive=True):
-                child.kill()
-            proc.kill()
+        # --- Write Results ---
+        with open("processing.md", "w") as f:
+            test_order = [
+                "Hardhat_Server_Startup",
+                "Contract_Deployment",
+                "Create_Bounty",
+                "Claim_Bounty",
+                "Metamask_Approve",
+                "Metamask_Cancel_Bounty",
+            ]
+            for name in test_order:
+                if name in results:
+                    data = results[name]
+                    f.write(f"{name}: Latency: {data['Latency']:.4f}s Speed: {data['Speed']:.4f} m/s\n")
+
+        print("\n--- Test Complete ---")
+        print("Processing results written to processing.md")
+
 
 if __name__ == "__main__":
     main()
