@@ -1,6 +1,11 @@
-Hardhat_Server_Startup: Latency: 5.5329s Speed: 0.1807 m/s
-Contract_Deployment: Latency: 3.4236s Speed: 0.2921 m/s
-Create_Bounty: Latency: 0.0417s Speed: 23.9622 m/s
-Claim_Bounty: Latency: 0.0260s Speed: 38.4492 m/s
-Metamask_Approve: Latency: 0.0277s Speed: 36.1497 m/s
-Metamask_Cancel_Bounty: Latency: 0.0241s Speed: 41.5376 m/s
+## Performance Test Results
+
+| Parameter                 | Latency (s) | Speed (op/s) |
+|---------------------------|-------------|--------------|
+| Frontend_Compilation      | 41.1568      | 0.0243       |
+| Hardhat_Server_Startup    | 2.6006      | 0.3845       |
+| Contract_Deployment       | 1.7181      | 0.5820       |
+| Create_Bounty             | 0.0289      | 34.5931       |
+| Claim_Bounty              | 0.0220      | 45.4790       |
+| Metamask_Approve          | 0.0219      | 45.6607       |
+| Metamask_Cancel_Bounty    | 0.0212      | 47.1143       |
