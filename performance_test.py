@@ -8,7 +8,8 @@ import statistics
 
 # --- Configuration ---
 # Jumlah pengulangan untuk setiap tes untuk mendapatkan rata-rata yang lebih akurat
-TEST_ITERATIONS = 3  # Anda bisa menyesuaikan jumlah iterasi
+TEST_ITERATIONS = 2  # Mengurangi jumlah iterasi untuk stabilitas
+TEST_DELAY = 2  # Delay dalam detik antara setiap tes
 
 def calculate_metrics(measurements):
     """
@@ -125,79 +126,152 @@ def get_contract_info():
     return contract_address, contract_abi
 
 
-def send_transaction(w3, contract, account, func, value=0):
-    nonce = w3.eth.get_transaction_count(account.address)
-    tx = func.build_transaction({
-        'from': account.address,
-        'nonce': nonce,
-        'gas': 2000000,
-        'gasPrice': w3.to_wei('50', 'gwei'),
-        'value': value
-    })
-    signed_tx = account.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-    print(f"Transaction sent with hash: {tx_hash.hex()}")
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    print(f"Transaction confirmed in block: {receipt.blockNumber}")
-    return receipt
+def send_transaction(w3, contract, account, func, value=0, max_retries=5):
+    for retry in range(max_retries):
+        try:
+            # Get the latest nonce
+            nonce = w3.eth.get_transaction_count(account.address)
+            
+            # Wait for a moment to ensure node is ready
+            time.sleep(1)
+            
+            # Build transaksi dengan gas yang optimal
+            tx = func.build_transaction({
+                'from': account.address,
+                'nonce': nonce,
+                'gas': 500000,  # Lebih rendah dari sebelumnya tapi masih cukup
+                'gasPrice': w3.to_wei('20', 'gwei'),  # Lebih rendah untuk transaksi lebih cepat
+                'value': value
+            })
+            
+            # Sign dan kirim transaksi
+            signed_tx = account.sign_transaction(tx)
+            tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            print(f"Transaction sent with hash: {tx_hash.hex()}")
+            
+            # Tunggu konfirmasi dengan timeout yang masuk akal
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+            print(f"Transaction confirmed in block: {receipt.blockNumber}")
+            return receipt
+            
+        except Exception as e:
+            print(f"Transaction attempt {retry + 1} failed: {str(e)}")
+            if retry == max_retries - 1:  # Last attempt
+                raise
+            time.sleep(2)  # Wait before retrying
+            continue
+    
+    raise Exception("All transaction attempts failed")
 
 def test_create_bounty(w3, contract, account):
     print("Testing Create Bounty...")
     latencies = []
     
     for i in range(TEST_ITERATIONS):
-        print(f"Iteration {i+1}/{TEST_ITERATIONS}")
+        print(f"Create Bounty iteration {i+1}/{TEST_ITERATIONS}")
         start_time = time.time()
         try:
-            send_transaction(w3, contract, account, contract.functions.createBounty(
-                f"Test Bounty {i}", 
-                "Test Description", 
-                "http://github.com/test"
-            ), w3.to_wei(0.1, 'ether'))
+            send_transaction(
+                w3, 
+                contract, 
+                account, 
+                contract.functions.createBounty(
+                    f"Test Bounty {i}", 
+                    "Test Description", 
+                    "http://github.com/test"
+                ), 
+                w3.to_wei(0.1, 'ether')
+            )
             end_time = time.time()
-            latencies.append(end_time - start_time)
+            latency = end_time - start_time
+            print(f"Create Bounty {i+1} completed in {latency:.4f} seconds")
+            latencies.append(latency)
         except Exception as e:
-            print(f"Error in iteration {i+1}: {e}")
+            print(f"Error in Create Bounty iteration {i+1}: {e}")
             continue
-            
+    
     metrics = calculate_metrics(latencies)
+    print(f"Average Create Bounty time: {metrics['Latency']:.4f} seconds")
     return {"Create_Bounty": metrics}
 
 def test_claim_bounty(w3, contract, account):
     print("Testing Claim Bounty...")
-    bounty_id = contract.functions.nextBountyId().call() - 1
-    start_time = time.time()
-    send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
-    end_time = time.time()
-    latency = end_time - start_time
-    speed = 1 / latency if latency != 0 else float('inf')
-    return {"Claim_Bounty": {"Latency": latency, "Speed": speed}}
+    latencies = []
+    
+    for i in range(TEST_ITERATIONS):
+        print(f"Claim Bounty iteration {i+1}/{TEST_ITERATIONS}")
+        try:
+            bounty_id = contract.functions.nextBountyId().call() - 1
+            start_time = time.time()
+            send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
+            end_time = time.time()
+            latency = end_time - start_time
+            print(f"Claim Bounty {i+1} completed in {latency:.4f} seconds")
+            latencies.append(latency)
+        except Exception as e:
+            print(f"Error in Claim Bounty iteration {i+1}: {e}")
+            continue
+    
+    metrics = calculate_metrics(latencies)
+    print(f"Average Claim Bounty time: {metrics['Latency']:.4f} seconds")
+    return {"Claim_Bounty": metrics}
 
 def test_approve_bounty(w3, contract, account):
     print("Testing Approve Bounty (PayBounty)...")
-    bounty_id = contract.functions.nextBountyId().call() - 1
-    claimants = contract.functions.getClaimants(bounty_id).call()
-    winner = claimants[0] if claimants else account.address
-    start_time = time.time()
-    send_transaction(w3, contract, account, contract.functions.payBounty(bounty_id, winner))
-    end_time = time.time()
-    latency = end_time - start_time
-    speed = 1 / latency if latency != 0 else float('inf')
-    return {"Metamask_Approve": {"Latency": latency, "Speed": speed}}
+    latencies = []
+    
+    for i in range(TEST_ITERATIONS):
+        print(f"Approve Bounty iteration {i+1}/{TEST_ITERATIONS}")
+        try:
+            bounty_id = contract.functions.nextBountyId().call() - 1
+            claimants = contract.functions.getClaimants(bounty_id).call()
+            winner = claimants[0] if claimants else account.address
+            
+            start_time = time.time()
+            send_transaction(w3, contract, account, contract.functions.payBounty(bounty_id, winner))
+            end_time = time.time()
+            latency = end_time - start_time
+            print(f"Approve Bounty {i+1} completed in {latency:.4f} seconds")
+            latencies.append(latency)
+        except Exception as e:
+            print(f"Error in Approve Bounty iteration {i+1}: {e}")
+            continue
+    
+    metrics = calculate_metrics(latencies)
+    print(f"Average Approve Bounty time: {metrics['Latency']:.4f} seconds")
+    return {"Metamask_Approve": metrics}
 
 def test_cancel_bounty(w3, contract, account):
     print("Testing Cancel Bounty...")
-    # Create a new bounty to cancel
-    send_transaction(w3, contract, account, contract.functions.createBounty("Cancel Test", "Desc", "url"), w3.to_wei(0.1, 'ether'))
-    bounty_id = contract.functions.nextBountyId().call() - 1
-    send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
-
-    start_time = time.time()
-    send_transaction(w3, contract, account, contract.functions.cancelClaim(bounty_id))
-    end_time = time.time()
-    latency = end_time - start_time
-    speed = 1 / latency if latency != 0 else float('inf')
-    return {"Metamask_Cancel_Bounty": {"Latency": latency, "Speed": speed}}
+    latencies = []
+    
+    for i in range(TEST_ITERATIONS):
+        print(f"Cancel Bounty iteration {i+1}/{TEST_ITERATIONS}")
+        try:
+            # Create a new bounty to cancel
+            send_transaction(
+                w3, 
+                contract, 
+                account, 
+                contract.functions.createBounty(f"Cancel Test {i}", "Desc", "url"), 
+                w3.to_wei(0.1, 'ether')
+            )
+            bounty_id = contract.functions.nextBountyId().call() - 1
+            send_transaction(w3, contract, account, contract.functions.claimBounty(bounty_id))
+            
+            start_time = time.time()
+            send_transaction(w3, contract, account, contract.functions.cancelClaim(bounty_id))
+            end_time = time.time()
+            latency = end_time - start_time
+            print(f"Cancel Bounty {i+1} completed in {latency:.4f} seconds")
+            latencies.append(latency)
+        except Exception as e:
+            print(f"Error in Cancel Bounty iteration {i+1}: {e}")
+            continue
+    
+    metrics = calculate_metrics(latencies)
+    print(f"Average Cancel Bounty time: {metrics['Latency']:.4f} seconds")
+    return {"Metamask_Cancel_Bounty": metrics}
 
 
 def test_frontend_compilation():
@@ -226,27 +300,49 @@ def main():
         # Get contract info
         contract_address, contract_abi = get_contract_info()
 
-        # Initialize Web3 and account with retry logic
-        retries = 3
-        for attempt in range(retries):
+        # Initialize Web3 and account with improved connection handling
+        print("Initializing Web3 connection...")
+        time.sleep(5)  # Give node some time to fully initialize
+        
+        w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL, request_kwargs={
+            'timeout': 120,  # Longer timeout for stability
+        }))
+        
+        # Wait for node to be ready with better feedback
+        max_attempts = 30
+        for attempt in range(max_attempts):
             try:
-                w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL, request_kwargs={'timeout': 300}))
-                if not w3.is_connected():
-                    raise Exception("Failed to connect to Hardhat node")
-                account = w3.eth.account.from_key(PRIVATE_KEY)
-                contract = w3.eth.contract(address=contract_address, abi=contract_abi)
-                # If we get here, connection is successful
-                break
+                if w3.is_connected():
+                    block = w3.eth.block_number
+                    print(f"Successfully connected to node at block {block}")
+                    break
+                else:
+                    print(f"Waiting for node to be ready... (attempt {attempt + 1}/{max_attempts})")
+                    time.sleep(2)
             except Exception as e:
-                if attempt == retries - 1:  # Last attempt
+                print(f"Connection attempt {attempt + 1} failed: {str(e)}")
+                if attempt == max_attempts - 1:
                     raise
-                print(f"Connection attempt {attempt + 1} failed, retrying...")
-                time.sleep(5)  # Wait 5 seconds before retrying
+                time.sleep(2)
+        
+        account = w3.eth.account.from_key(PRIVATE_KEY)
+        contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+        print("Web3 initialization complete.")
 
-        # Run tests
+        # Run tests with delays between them
+        print("\nStarting Create Bounty tests...")
         results.update(test_create_bounty(w3, contract, account))
+        time.sleep(TEST_DELAY)
+        
+        print("\nStarting Claim Bounty tests...")
         results.update(test_claim_bounty(w3, contract, account))
+        time.sleep(TEST_DELAY)
+        
+        print("\nStarting Approve Bounty tests...")
         results.update(test_approve_bounty(w3, contract, account))
+        time.sleep(TEST_DELAY)
+        
+        print("\nStarting Cancel Bounty tests...")
         results.update(test_cancel_bounty(w3, contract, account))
 
     except Exception as e:
