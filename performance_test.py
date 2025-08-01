@@ -4,38 +4,53 @@ import json
 from web3 import Web3
 import os
 import signal
-import sys
 
 # --- Configuration ---
 PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 HARDHAT_RPC_URL = "http://127.0.0.1:8545"
-CONTRACT_ADDRESS_PATH = "apps/dashboard/src/contracts/deployed_contract_address.json"
-ABI_PATH = "src/artifacts/contracts/BonusEscrow.sol/BonusEscrow.json"
+CONTRACT_INFO_PATH = "src/deployments/localhost/BonusEscrow.json"
 SRC_DIR = "src"
+DASHBOARD_DIR = "apps/dashboard"
+
+
+def test_frontend_compilation():
+    """Measures the frontend compilation time."""
+    print("Testing Frontend Compilation...")
+    start_time = time.time()
+    try:
+        result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=DASHBOARD_DIR,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error during frontend compilation:")
+        print(e.stdout)
+        print(e.stderr)
+        raise
+    end_time = time.time()
+    latency = end_time - start_time
+    speed = 1 / latency if latency != 0 else float('inf')
+    print(f"Frontend compiled in {latency:.4f} seconds.")
+    return {"Frontend_Compilation": {"Latency": latency, "Speed": speed}}
+
 
 def start_hardhat_node():
     """Starts a Hardhat node in the background and waits for it to be ready."""
     print("Starting Hardhat node...")
     start_time = time.time()
 
-    preexec_fn = None
-    creationflags = 0
-    if os.name == 'posix':
-        preexec_fn = os.setsid
-    elif os.name == 'nt':
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
-
-    # Use shell=True for Windows compatibility with npm commands
-    shell = sys.platform.startswith('win')
-
+    # Using preexec_fn=os.setsid to create a new process group
+    # This allows us to kill the entire process tree later
     node_process = subprocess.Popen(
         ["npm", "run", "start:hardhat"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        preexec_fn=preexec_fn,
-        creationflags=creationflags,
-        shell=shell
+        preexec_fn=os.setsid
     )
 
     # Wait for the node to be ready
@@ -57,15 +72,15 @@ def deploy_contract():
     print("Deploying contract...")
     start_time = time.time()
     try:
-        # Use shell=True for Windows compatibility with npx
-        shell = sys.platform.startswith('win')
+        # The command from root package.json is `npx hardhat run src/deploy/01_deploy_escrow.js --network localhost`
+        # But since hardhat-deploy is used, a simple `deploy` is better.
+        # We need to run it from the `src` directory.
         result = subprocess.run(
             ["npx", "hardhat", "deploy", "--network", "localhost"],
             cwd=SRC_DIR,
             check=True,
             capture_output=True,
-            text=True,
-            shell=shell
+            text=True
         )
         print(result.stdout)
     except subprocess.CalledProcessError as e:
@@ -82,44 +97,26 @@ def deploy_contract():
 
 def get_contract_info():
     """Reads the contract address and ABI from the filesystem."""
-    with open(CONTRACT_ADDRESS_PATH, "r") as f:
-        address_data = json.load(f)
-        contract_address = address_data["contractAddress"]
-
-    with open(ABI_PATH, "r") as f:
-        abi_data = json.load(f)
-        contract_abi = abi_data["abi"]
+    with open(CONTRACT_INFO_PATH, "r") as f:
+        data = json.load(f)
+        contract_address = data["address"]
+        contract_abi = data["abi"]
 
     return contract_address, contract_abi
 
 
 def send_transaction(w3, contract, account, func, value=0):
-    """Builds, signs, and sends a transaction, letting web3 estimate gas."""
     nonce = w3.eth.get_transaction_count(account.address)
-    gas_price = w3.eth.gas_price
-
-    # Build the transaction dictionary
-    tx_fields = {
+    tx = func.build_transaction({
         'from': account.address,
         'nonce': nonce,
-        'gasPrice': gas_price,
-        'value': value,
-        'chainId': 31337  # Explicitly set chainId for Hardhat local network
-    }
-
-    # Estimate gas
-    gas_estimate = func.estimate_gas(tx_fields)
-    tx_fields['gas'] = gas_estimate
-
-    # Build the final transaction
-    tx = func.build_transaction(tx_fields)
-
-    # Sign and send
+        'gas': 2000000,
+        'gasPrice': w3.to_wei('50', 'gwei'),
+        'value': value
+    })
     signed_tx = account.sign_transaction(tx)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-
-    # Wait for the receipt
-    return w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+    return w3.eth.wait_for_transaction_receipt(tx_hash)
 
 def test_create_bounty(w3, contract, account):
     print("Testing Create Bounty...")
@@ -172,8 +169,8 @@ def main():
     node_process = None
 
     try:
-        # --- Add placeholder for Frontend Compilation ---
-        results["Frontend_Compilation"] = {"Latency": 3.5, "Speed": 0.2857}
+        # --- Frontend Compilation ---
+        results.update(test_frontend_compilation())
 
         # --- Environment Setup ---
         node_process, startup_results = start_hardhat_node()
@@ -181,9 +178,6 @@ def main():
 
         deployment_results = deploy_contract()
         results.update(deployment_results)
-
-        print("Waiting for Hardhat node to stabilize...")
-        time.sleep(5)
 
         contract_address, contract_abi = get_contract_info()
 
@@ -216,10 +210,8 @@ def main():
         # --- Teardown ---
         if node_process:
             print("Shutting down Hardhat node...")
-            if os.name == 'posix':
-                os.killpg(os.getpgid(node_process.pid), signal.SIGTERM)
-            elif os.name == 'nt':
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(node_process.pid)])
+            # Kill the entire process group
+            os.killpg(os.getpgid(node_process.pid), signal.SIGTERM)
             node_process.wait()
             print("Hardhat node shut down.")
 
@@ -234,10 +226,14 @@ def main():
                 "Metamask_Approve",
                 "Metamask_Cancel_Bounty",
             ]
+            f.write("## Performance Test Results\n\n")
+            f.write("| Parameter                 | Latency (s) | Speed (op/s) |\n")
+            f.write("|---------------------------|-------------|--------------|\n")
+
             for name in test_order:
                 if name in results:
                     data = results[name]
-                    f.write(f"{name}: Latency: {data['Latency']:.4f}s Speed: {data['Speed']:.4f} m/s\n")
+                    f.write(f"| {name:<25} | {data['Latency']:.4f}      | {data['Speed']:.4f}       |\n")
 
         print("\n--- Test Complete ---")
         print("Processing results written to processing.md")
