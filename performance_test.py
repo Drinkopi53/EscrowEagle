@@ -167,15 +167,25 @@ def main():
         deployment_results = deploy_contract()
         results.update(deployment_results)
 
-        print("Waiting for Hardhat node to stabilize...")
-        time.sleep(5)
-
         contract_address, contract_abi = get_contract_info()
 
         # --- Web3 Connection ---
-        w3 = Web3(Web3.HTTPProvider(HARDHAT_RPC_URL))
+        print("Connecting to Hardhat node...")
+        # Explicitly set a longer timeout for the provider
+        provider = Web3.HTTPProvider(HARDHAT_RPC_URL, request_kwargs={'timeout': 60.0})
+        w3 = Web3(provider)
+
+        # Wait for the node to be fully ready by polling
+        max_retries = 10
+        retries = 0
+        while not w3.is_connected() and retries < max_retries:
+            print(f"Waiting for Hardhat node to be ready... (attempt {retries + 1})")
+            time.sleep(2)
+            retries += 1
+
         if not w3.is_connected():
-            raise ConnectionError("Could not connect to the Hardhat node.")
+            raise ConnectionError(f"Could not connect to the Hardhat node at {HARDHAT_RPC_URL} after {max_retries} attempts.")
+
         print("Successfully connected to Hardhat node.")
 
         # --- Initialize Contract and Account ---
