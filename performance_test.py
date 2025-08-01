@@ -167,6 +167,9 @@ def main():
         deployment_results = deploy_contract()
         results.update(deployment_results)
 
+        print("Waiting for Hardhat node to stabilize...")
+        time.sleep(5)
+
         contract_address, contract_abi = get_contract_info()
 
         # --- Web3 Connection ---
